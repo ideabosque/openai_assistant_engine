@@ -72,9 +72,9 @@ def wait_on_run(logger, thread_id, run_id):
                             {
                                 "tool_call_id": tool_call.id,
                                 "output": "Submit",
-                                "output": eval(f"{function_name}_handler")(
-                                    logger, **arguments
-                                ),
+                                # "output": eval(f"{function_name}_handler")(
+                                #     logger, **arguments
+                                # ),
                             }
                         ],
                     )
@@ -94,6 +94,19 @@ def get_response(logger, thread_id):
     try:
         messages = client.beta.threads.messages.list(thread_id=thread_id, order="asc")
         return messages
+    except Exception as e:
+        logger.error(e)
+        raise e
+
+
+# Pretty printing helper
+def pretty_log(logger, messages, roles=["user", "assistant"]):
+    try:
+        logger.info("# Messages")
+        for m in messages:
+            if m.role not in roles:
+                continue
+            logger.info(f"{m.role}: {m.content[0].text.value}")
     except Exception as e:
         logger.error(e)
         raise e
