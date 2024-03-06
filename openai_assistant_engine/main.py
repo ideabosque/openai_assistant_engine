@@ -10,6 +10,7 @@ from .handlers import (
     submit_message,
     wait_on_run,
     get_response,
+    pretty_log,
 )
 
 
@@ -36,3 +37,6 @@ class OpenaiAssistantEngine(object):
 
     def get_response(self, thread_id):
         return get_response(self.logger, thread_id)
+
+    def pretty_log(self, messages, roles=["user", "assistant"]):
+        return pretty_log(self.logger, messages, roles)

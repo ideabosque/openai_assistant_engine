@@ -37,13 +37,20 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info(f"thread_id: {thread_id}")
 
         # Load JSON data from file
-        json_file_path = "formula_#83020.json"  # Replace with the actual file path
+        json_file_path = "/var/www/projects/openai_assistant_engine/openai_assistant_engine/tests/formula_#83020.json"  # Replace with the actual file path
         with open(json_file_path, "r") as file:
             formula_json = json.load(file)
 
-        message = f"Get healthcare keywords (e.g. Digestive health, Immune system support) by the formula: \n{formula_json}\n"
-        +"Present the response as specified below without any explanation: \n"
-        +"{ formula: #xxxxx, keywords: { <keyword-x>: { explanation: <explanation>, category: <category-x>, ingredients: [ <ingredient-x> ] } } }\n\n"
+        message = (
+            f"Get healthcare keywords (e.g. Digestive health, Immune system support) by the formula: \n{formula_json}\n"
+            + "Present the response as specified below without any explanation: \n"
+            + "{ formula: #xxxxx, keywords: { <keyword-x>: { explanation: <explanation>, category: <category-x>, ingredients: [ <ingredient-x> ] } } }\n\n"
+        )
+
+        run_id = self.openai_assistant_engine.submit_message(thread_id, message)
+        run_id = self.openai_assistant_engine.wait_on_run(thread_id, run_id)
+        messages = self.openai_assistant_engine.get_response(thread_id)
+        self.openai_assistant_engine.pretty_log(messages, roles=["assistant"])
 
 
 if __name__ == "__main__":
