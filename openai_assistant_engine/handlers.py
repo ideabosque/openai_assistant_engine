@@ -55,7 +55,10 @@ def wait_on_run(logger, thread_id, run_id):
         )
 
         while run.status == "queued" or run.status == "in_progress":
-
+            run = client.beta.threads.runs.retrieve(
+                thread_id=thread_id,
+                run_id=run.id,
+            )
             if run.status == "requires_action":
                 # Extract single tool call
                 for tool_call in run.required_action.submit_tool_outputs.tool_calls:
@@ -80,10 +83,6 @@ def wait_on_run(logger, thread_id, run_id):
                     )
 
             time.sleep(0.5)
-            run = client.beta.threads.runs.retrieve(
-                thread_id=thread_id,
-                run_id=run.id,
-            )
         return run.id
     except Exception as e:
         logger.error(e)
