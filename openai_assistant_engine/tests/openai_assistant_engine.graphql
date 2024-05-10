@@ -1,0 +1,41 @@
+fragment AskOpenAIInfo on AskOpenAIType {
+    assistantId
+    threadId
+    question
+}
+
+fragment LastMessageInfo on LastMessageType {
+    threadId
+    role
+    message
+}
+
+query ping {
+    ping
+}
+
+query askOpenAi(
+    $question: String!,
+    $assistantId: String!,
+    $threadId: String
+) {
+    askOpenAi(
+        question: $question,
+        assistantId: $assistantId,
+        threadId: $threadId
+    ) {
+        ...AskOpenAIInfo
+    }
+}
+
+query getLastMessage(
+    $threadId: String!,
+    $role: String!
+) {
+    lastMessage(
+        threadId: $threadId,
+        role: $role
+    ){
+        ...LastMessageInfo
+    }
+}

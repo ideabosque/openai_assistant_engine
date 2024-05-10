@@ -4,14 +4,12 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+from graphene import Schema
+from .schema import Query, Mutations, type_class
 from .handlers import (
     handlers_init,
-    create_thread,
-    submit_message,
-    wait_on_run,
-    get_response,
-    pretty_log,
 )
+from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 
 # Hook function applied to deployment
@@ -19,24 +17,19 @@ def deploy() -> list:
     return []
 
 
-class OpenaiAssistantEngine(object):
+class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
     def __init__(self, logger, **setting):
         handlers_init(logger, **setting)
 
         self.logger = logger
         self.setting = setting
 
-    def create_thread(self):
-        return create_thread(self.logger)
+        SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
 
-    def submit_message(self, thread_id, user_message):
-        return submit_message(self.logger, thread_id, user_message)
-
-    def wait_on_run(self, thread_id, run_id):
-        return wait_on_run(self.logger, thread_id, run_id)
-
-    def get_response(self, thread_id):
-        return get_response(self.logger, thread_id)
-
-    def pretty_log(self, messages, roles=["user", "assistant"]):
-        return pretty_log(self.logger, messages, roles)
+    def open_assistant_graphql(self, **params):
+        schema = Schema(
+            query=Query,
+            # mutation=Mutations,
+            types=type_class(),
+        )
+        return self.graphql_execute(schema, **params)

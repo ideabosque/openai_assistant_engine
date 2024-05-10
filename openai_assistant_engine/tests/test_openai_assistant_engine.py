@@ -11,10 +11,30 @@ from pathlib import Path
 load_dotenv()
 setting = {
     "openai_api_key": os.getenv("openai_api_key"),
-    "assistant_id": os.getenv("assistant_id"),
+    "assistant_functions": {
+        "asst_jUzZKojROaz6HACC1uzaqR5x": {
+            "inquiry_data": {
+                "module_name": "redis_search",
+                "class_name": "RedisSearch",
+                "configuration": {
+                    "openai_api_key": os.getenv("openai_api_key"),
+                    "EMBEDDING_MODEL": os.getenv(
+                        "embedding_model", "text-embedding-3-small"
+                    ),
+                    "REDIS_HOST": "localhost",
+                    "REDIS_PORT": 6379,
+                    "REDIS_PASSWORD": "",  # default for passwordless Redis},
+                },
+            }
+        }
+    },
 }
 
-sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
+document = Path(
+    os.path.join(os.path.dirname(__file__), "openai_assistant_engine.graphql")
+).read_text()
+sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
+sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/redis_search")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -30,27 +50,59 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def tearDown(self):
         logger.info("Destory OpenaiAssistantEngineTest ...")
 
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_ping(self):
+        payload = {
+            "query": document,
+            "variables": {},
+            "operation_name": "ping",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
     # @unittest.skip("demonstrating skipping")
-    def test_conversation(self):
-        logger.info("Start test_conversation ...")
-        thread_id = self.openai_assistant_engine.create_thread()
-        logger.info(f"thread_id: {thread_id}")
+    def test_conversation_search(self):
+        logger.info("Start test_conversation_search ...")
+        print("Hello! I am an AI assistant. How can I help you today?")
+        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        thread_id = None
+        while True:
+            user_input = input("You: ").strip().lower()
 
-        # Load JSON data from file
-        json_file_path = "/var/www/projects/openai_assistant_engine/openai_assistant_engine/tests/formula_#83020.json"  # Replace with the actual file path
-        with open(json_file_path, "r") as file:
-            formula_json = json.load(file)
+            if user_input == "exit":
+                print("Exiting the program.")
+                break
 
-        message = (
-            f"Get healthcare keywords (e.g. Digestive health, Immune system support) by the formula: \n{formula_json}\n"
-            + "Present the response as specified below without any explanation: \n"
-            + "{ formula: #xxxxx, keywords: { <keyword-x>: { explanation: <explanation>, category: <category-x>, ingredients: [ <ingredient-x> ] } } }\n\n"
-        )
+            payload = {
+                "query": document,
+                "variables": {
+                    "question": user_input,
+                    "assistantId": assistant_id,
+                    "threadId": thread_id,
+                },
+                "operation_name": "askOpenAi",
+            }
+            response = json.loads(
+                self.openai_assistant_engine.open_assistant_graphql(**payload)
+            )
+            # logger.info(response)
+            thread_id = response["data"]["askOpenAi"]["threadId"]
 
-        run_id = self.openai_assistant_engine.submit_message(thread_id, message)
-        run_id = self.openai_assistant_engine.wait_on_run(thread_id, run_id)
-        messages = self.openai_assistant_engine.get_response(thread_id)
-        self.openai_assistant_engine.pretty_log(messages, roles=["assistant"])
+            payload = {
+                "query": document,
+                "variables": {"threadId": thread_id, "role": "assistant"},
+                "operation_name": "getLastMessage",
+            }
+            response = json.loads(
+                self.openai_assistant_engine.open_assistant_graphql(**payload)
+            )
+            # logger.info(response)
+            last_message = response["data"]["lastMessage"]["message"]
+
+            print(
+                "AI:",
+                last_message,
+            )
 
 
 if __name__ == "__main__":
