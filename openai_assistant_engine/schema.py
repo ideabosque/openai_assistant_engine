@@ -7,12 +7,16 @@ __author__ = "bibow"
 import time
 from graphene import ObjectType, String, List, Field, Int, DateTime, Boolean
 from silvaengine_utility import JSON
-from .queries import resolve_ask_open_ai, resolve_last_message
-from .types import AskOpenAIType, LastMessageType
+from .queries import (
+    resolve_ask_open_ai,
+    resolve_last_message,
+    resolve_current_run,
+)
+from .types import AskOpenAIType, LastMessageType, CurrentRunType
 
 
 def type_class():
-    return [AskOpenAIType, LastMessageType]
+    return [AskOpenAIType, LastMessageType, CurrentRunType]
 
 
 class Query(ObjectType):
@@ -32,6 +36,13 @@ class Query(ObjectType):
         role=String(required=True),
     )
 
+    current_run = Field(
+        CurrentRunType,
+        required=True,
+        thread_id=String(required=True),
+        run_id=String(required=True),
+    )
+
     def resolve_ping(self, info):
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -40,6 +51,9 @@ class Query(ObjectType):
 
     def resolve_last_message(self, info, **kwargs):
         return resolve_last_message(info, **kwargs)
+
+    def resolve_current_run(self, info, **kwargs):
+        return resolve_current_run(info, **kwargs)
 
 
 class Mutations(ObjectType):

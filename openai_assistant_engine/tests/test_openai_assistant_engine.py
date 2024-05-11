@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import logging, sys, unittest, os, json
+import logging, sys, unittest, os, json, time
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -87,6 +87,25 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             )
             # logger.info(response)
             thread_id = response["data"]["askOpenAi"]["threadId"]
+            current_run_id = response["data"]["askOpenAi"]["currentRunId"]
+
+            while True:
+                payload = {
+                    "query": document,
+                    "variables": {
+                        "threadId": thread_id,
+                        "runId": current_run_id,
+                    },
+                    "operation_name": "getCurrentRun",
+                }
+                response = json.loads(
+                    self.openai_assistant_engine.open_assistant_graphql(**payload)
+                )
+                logger.info(response)
+                if response["data"]["currentRun"]["status"] == "completed":
+                    break
+
+                time.sleep(5)
 
             payload = {
                 "query": document,

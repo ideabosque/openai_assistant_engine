@@ -4,7 +4,11 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from .handlers import ask_open_ai_handler, last_message_handler
+from .handlers import (
+    ask_open_ai_handler,
+    last_message_handler,
+    current_run_handler,
+)
 
 
 def resolve_ask_open_ai(info, **kwargs):
@@ -13,3 +17,7 @@ def resolve_ask_open_ai(info, **kwargs):
 
 def resolve_last_message(info, **kwargs):
     return last_message_handler(info, **kwargs)
+
+
+def resolve_current_run(info, **kwargs):
+    return current_run_handler(info, **kwargs)
