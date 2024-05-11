@@ -2,12 +2,19 @@ fragment AskOpenAIInfo on AskOpenAIType {
     assistantId
     threadId
     question
+    currentRunId
 }
 
 fragment LastMessageInfo on LastMessageType {
     threadId
     role
     message
+}
+
+fragment CurrentRunInfo on CurrentRunType {
+    threadId
+    runId
+    status
 }
 
 query ping {
@@ -37,5 +44,17 @@ query getLastMessage(
         role: $role
     ){
         ...LastMessageInfo
+    }
+}
+
+query getCurrentRun(
+    $threadId: String!,
+    $runId: String!
+) {
+    currentRun(
+        threadId: $threadId,
+        runId: $runId
+    ){
+        ...CurrentRunInfo
     }
 }
