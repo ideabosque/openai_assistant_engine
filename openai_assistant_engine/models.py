@@ -20,10 +20,10 @@ class AssistantModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "oae-assistants"
 
-    type = UnicodeAttribute(hash_key=True)
+    assistant_type = UnicodeAttribute(hash_key=True)
     assistant_id = UnicodeAttribute(range_key=True)
     assistant_name = UnicodeAttribute()
-    functoins = ListAttribute(default=[])
+    functions = ListAttribute()
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
@@ -35,9 +35,8 @@ class ThreadModel(BaseModel):
 
     assistant_id = UnicodeAttribute(hash_key=True)
     thread_id = UnicodeAttribute(range_key=True)
-    type = UnicodeAttribute()
-    status = UnicodeAttribute()
-    log = UnicodeAttribute()
+    assistant_type = UnicodeAttribute()
+    run_ids = ListAttribute()
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
@@ -51,6 +50,4 @@ class MessageModel(BaseModel):
     message_id = UnicodeAttribute(range_key=True)
     role = UnicodeAttribute()
     message = UnicodeAttribute()
-    updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
-    updated_at = UTCDateTimeAttribute()
