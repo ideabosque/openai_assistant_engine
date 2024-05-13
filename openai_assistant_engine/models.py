@@ -48,6 +48,7 @@ class MessageModel(BaseModel):
 
     thread_id = UnicodeAttribute(hash_key=True)
     message_id = UnicodeAttribute(range_key=True)
+    run_id = UnicodeAttribute(null=True)
     role = UnicodeAttribute()
     message = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()

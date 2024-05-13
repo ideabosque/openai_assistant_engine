@@ -14,23 +14,6 @@ setting = {
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
-    # "assistant_functions": {
-    #     "asst_jUzZKojROaz6HACC1uzaqR5x": {
-    #         "inquiry_data": {
-    #             "module_name": "redis_search",
-    #             "class_name": "RedisSearch",
-    #             "configuration": {
-    #                 "openai_api_key": os.getenv("openai_api_key"),
-    #                 "EMBEDDING_MODEL": os.getenv(
-    #                     "embedding_model", "text-embedding-3-small"
-    #                 ),
-    #                 "REDIS_HOST": "localhost",
-    #                 "REDIS_PORT": 6379,
-    #                 "REDIS_PASSWORD": "",  # default for passwordless Redis},
-    #             },
-    #         }
-    #     }
-    # },
 }
 
 document = Path(
@@ -83,6 +66,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                     "assistantId": assistant_id,
                     "assistantType": "conversation",
                     "threadId": thread_id,
+                    "updatedBy": "Use XYZ",
                 },
                 "operation_name": "askOpenAi",
             }
@@ -100,6 +84,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                         "assistantId": assistant_id,
                         "threadId": thread_id,
                         "runId": current_run_id,
+                        "updatedBy": "Use XYZ",
                     },
                     "operation_name": "getCurrentRun",
                 }

@@ -27,6 +27,7 @@ class AskOpenAIType(ObjectType):
 
 class LastMessageType(ObjectType):
     thread_id = String()
+    run_id = String()
     message_id = String()
     role = String()
     message = String()
@@ -52,6 +53,7 @@ class AssistantType(ObjectType):
 class ThreadType(ObjectType):
     assistant_id = String()
     thread_id = String()
+    assistant_type = String()
     type = String()
     run_ids = List(String)
     updated_by = String()
@@ -61,6 +63,7 @@ class ThreadType(ObjectType):
 
 class MessageType(ObjectType):
     thread_id = String()
+    run_id = String()
     message_id = String()
     role = String()
     message = String()
