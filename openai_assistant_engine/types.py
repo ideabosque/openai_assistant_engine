@@ -27,11 +27,53 @@ class AskOpenAIType(ObjectType):
 
 class LastMessageType(ObjectType):
     thread_id = String()
+    message_id = String()
     role = String()
     message = String()
+    created_at = DateTime()
 
 
 class CurrentRunType(ObjectType):
     thread_id = String()
     run_id = String()
     status = String()
+
+
+class AssistantType(ObjectType):
+    assistant_type = String()
+    assistant_id = String()
+    assistant_name = String()
+    functoins = List(JSON)
+    updated_by = String()
+    created_at = DateTime()
+    updated_at = DateTime()
+
+
+class ThreadType(ObjectType):
+    assistant_id = String()
+    thread_id = String()
+    type = String()
+    run_ids = List(String)
+    updated_by = String()
+    created_at = DateTime()
+    updated_at = DateTime()
+
+
+class MessageType(ObjectType):
+    thread_id = String()
+    message_id = String()
+    role = String()
+    message = String()
+    created_at = DateTime()
+
+
+class AssistantListType(ListObjectType):
+    assistant_list = List(AssistantType)
+
+
+class ThreadListType(ListObjectType):
+    thread_list = List(ThreadType)
+
+
+class MessageListType(ListObjectType):
+    message_list = List(MessageType)

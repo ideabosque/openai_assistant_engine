@@ -24,8 +24,9 @@ class Query(ObjectType):
     ask_open_ai = Field(
         AskOpenAIType,
         required=True,
-        question=String(required=True),
+        assistant_type=String(required=True),
         assistant_id=String(required=True),
+        question=String(required=True),
         thread_id=String(),
     )
 
@@ -39,6 +40,7 @@ class Query(ObjectType):
     current_run = Field(
         CurrentRunType,
         required=True,
+        assistant_id=String(required=True),
         thread_id=String(required=True),
         run_id=String(required=True),
     )

@@ -10,24 +10,27 @@ from pathlib import Path
 
 load_dotenv()
 setting = {
+    "region_name": os.getenv("region_name"),
+    "aws_access_key_id": os.getenv("aws_access_key_id"),
+    "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
-    "assistant_functions": {
-        "asst_jUzZKojROaz6HACC1uzaqR5x": {
-            "inquiry_data": {
-                "module_name": "redis_search",
-                "class_name": "RedisSearch",
-                "configuration": {
-                    "openai_api_key": os.getenv("openai_api_key"),
-                    "EMBEDDING_MODEL": os.getenv(
-                        "embedding_model", "text-embedding-3-small"
-                    ),
-                    "REDIS_HOST": "localhost",
-                    "REDIS_PORT": 6379,
-                    "REDIS_PASSWORD": "",  # default for passwordless Redis},
-                },
-            }
-        }
-    },
+    # "assistant_functions": {
+    #     "asst_jUzZKojROaz6HACC1uzaqR5x": {
+    #         "inquiry_data": {
+    #             "module_name": "redis_search",
+    #             "class_name": "RedisSearch",
+    #             "configuration": {
+    #                 "openai_api_key": os.getenv("openai_api_key"),
+    #                 "EMBEDDING_MODEL": os.getenv(
+    #                     "embedding_model", "text-embedding-3-small"
+    #                 ),
+    #                 "REDIS_HOST": "localhost",
+    #                 "REDIS_PORT": 6379,
+    #                 "REDIS_PASSWORD": "",  # default for passwordless Redis},
+    #             },
+    #         }
+    #     }
+    # },
 }
 
 document = Path(
@@ -78,6 +81,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "variables": {
                     "question": user_input,
                     "assistantId": assistant_id,
+                    "assistantType": "conversation",
                     "threadId": thread_id,
                 },
                 "operation_name": "askOpenAi",
@@ -85,7 +89,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             response = json.loads(
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
-            # logger.info(response)
+            logger.info(response)
             thread_id = response["data"]["askOpenAi"]["threadId"]
             current_run_id = response["data"]["askOpenAi"]["currentRunId"]
 
@@ -93,6 +97,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 payload = {
                     "query": document,
                     "variables": {
+                        "assistantId": assistant_id,
                         "threadId": thread_id,
                         "runId": current_run_id,
                     },
