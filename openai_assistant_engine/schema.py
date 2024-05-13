@@ -27,6 +27,7 @@ class Query(ObjectType):
         assistant_type=String(required=True),
         assistant_id=String(required=True),
         question=String(required=True),
+        updated_by=String(required=True),
         thread_id=String(),
     )
 
@@ -43,6 +44,7 @@ class Query(ObjectType):
         assistant_id=String(required=True),
         thread_id=String(required=True),
         run_id=String(required=True),
+        updated_by=String(required=True),
     )
 
     def resolve_ping(self, info):

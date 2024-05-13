@@ -86,7 +86,8 @@ def update_thread_and_insert_message(info, kwargs, result, role):
     update_kwargs = {
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
-        "run_id": getattr(result, "run_id", None),
+        "run_id": getattr(result, "run_id", None) or result.current_run_id,
+        "updated_by": kwargs["updated_by"],
     }
     if kwargs.get("thread_id") is None:
         update_kwargs["assistant_type"] = kwargs["assistant_type"]
@@ -95,14 +96,16 @@ def update_thread_and_insert_message(info, kwargs, result, role):
 
     last_message = last_message_handler(info, thread_id=result.thread_id, role=role)
 
-    insert_message_handler(
+    insert_update_message_handler(
         info,
         thread_id=last_message.thread_id,
+        run_id=last_message.run_id,
         message_id=last_message.message_id,
         role=last_message.role,
         message=last_message.message,
         created_at=last_message.created_at,
     )
+    return
 
 
 ## We can move the decorator to the uplevel.
@@ -116,16 +119,16 @@ def assistant_decorator():
 
                 result = original_function(*args, **kwargs)
 
-                # if function_name == "ask_open_ai_handler":
-                #     update_thread_and_insert_message(args[0], kwargs, result, "user")
+                if function_name == "ask_open_ai_handler":
+                    update_thread_and_insert_message(args[0], kwargs, result, "user")
 
-                # elif (
-                #     function_name == "current_run_handler"
-                #     and result.status == "completed"
-                # ):
-                #     update_thread_and_insert_message(
-                #         args[0], kwargs, result, "assistant"
-                #     )
+                elif (
+                    function_name == "current_run_handler"
+                    and result.status == "completed"
+                ):
+                    update_thread_and_insert_message(
+                        args[0], kwargs, result, "assistant"
+                    )
 
                 return result
 
@@ -148,13 +151,15 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def on_event(self, event):
+        self.logger.info(f"event: {event.event}")
+        if event.event == "thread.run.created":
+            self.logger.info(f"current_run_id: {event.data.id}")
+            if self.queue is not None:
+                self.queue.put({"name": "current_run_id", "value": event.data.id})
+
         # Retrieve events that are denoted with 'requires_action'
         # since these will have our tool_calls
         if event.event == "thread.run.requires_action":
-            run_id = event.data.id  # Retrieve the run ID from the event data
-            self.logger.info(f"current_run_id: {run_id}")
-            if self.queue is not None:
-                self.queue.put({"name": "current_run_id", "value": run_id})
             self.handle_requires_action(event.data)
 
     def handle_requires_action(self, data):
@@ -256,8 +261,9 @@ def last_message_handler(info, **kwargs):
             )
         )
         if len(messages) > 0:
-            last_message.message = messages[0].content[0].text.value
             last_message.message_id = messages[0].id
+            last_message.run_id = messages[0].run_id
+            last_message.message = messages[0].content[0].text.value
             last_message.created_at = datetime.fromtimestamp(
                 messages[0].created_at
             ).astimezone(timezone("UTC"))
@@ -279,25 +285,29 @@ def handle_stream(logger, thread_id, assistant_id, assistant_type, queue):
 def get_current_run_id_and_start_async_task(
     logger, thread_id, assistant_id, assistant_type
 ):
-    # Create a queue to share data between threads
-    queue = Queue()
+    try:
+        # Create a queue to share data between threads
+        queue = Queue()
 
-    # Start the thread to handle the stream
-    stream_thread = threading.Thread(
-        target=handle_stream,
-        args=(logger, thread_id, assistant_id, assistant_type, queue),
-    )
-    stream_thread.start()
+        # Start the thread to handle the stream
+        stream_thread = threading.Thread(
+            target=handle_stream,
+            args=(logger, thread_id, assistant_id, assistant_type, queue),
+        )
+        stream_thread.start()
 
-    # Fetch the final_run_id from the queue
-    q = (
-        queue.get()
-    )  # This will block until the current_run_id is put into the queue by the thread
+        # Fetch the final_run_id from the queue
+        q = (
+            queue.get()
+        )  # This will block until the current_run_id is put into the queue by the thread
 
-    if q["name"] == "current_run_id":
-        return q["value"]
+        if q["name"] == "current_run_id":
+            return q["value"]
 
-    raise Exception("Cannot locate the value for current_run_id.")
+        raise Exception("Cannot locate the value for current_run_id.")
+    except Exception as e:
+        logger.context.get("logger").error(e)
+        raise e
 
 
 @assistant_decorator()
@@ -467,7 +477,6 @@ def _get_thread(assistant_id, thread_id):
         "thread_id": thread.thread_id,
         "assistant_type": thread.assistant_type,
         "run_ids": thread.run_ids,
-        "log": thread.log,
         "updated_by": thread.updated_by,
         "created_at": thread.created_at,
         "updated_at": thread.updated_at,
@@ -526,22 +535,22 @@ def resolve_thread_list_handler(info, **kwargs):
     },
     model_funct=get_thread,
     count_funct=get_thread_count,
-    type_funct=get_assistant_type,
+    type_funct=get_thread_type,
+    range_key_required=True,
     # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
     # activity_history_funct=None,
 )
 def insert_update_thread_handler(info, **kwargs):
-    assistant_id = kwargs.get("assistant_id")
-    thread_id = kwargs.get("thread_id")
+    assistant_id = kwargs["assistant_id"]
+    thread_id = kwargs["thread_id"]
     if kwargs.get("entity") is None:
         ThreadModel(
             assistant_id,
             thread_id,
             **{
-                "assistant_type": kwargs.get("assistant_type"),
-                "run_ids": [kwargs.get("run_id")],
-                "log": kwargs.get("log"),
-                "updated_by": kwargs.get("updated_by"),
+                "assistant_type": kwargs["assistant_type"],
+                "run_ids": [kwargs["run_id"]],
+                "updated_by": kwargs["updated_by"],
                 "created_at": datetime.now(tz=timezone("UTC")),
                 "updated_at": datetime.now(tz=timezone("UTC")),
             },
@@ -550,15 +559,13 @@ def insert_update_thread_handler(info, **kwargs):
 
     thread = kwargs.get("entity")
     actions = [
-        AssistantModel.updated_by.set(kwargs.get("updated_by")),
+        AssistantModel.updated_by.set(kwargs["updated_by"]),
         AssistantModel.updated_at.set(datetime.now(tz=timezone("UTC"))),
     ]
     if kwargs.get("run_id") is not None:
         run_ids = set(thread.run_ids)
-        run_ids.add(kwargs.get("run_id"))
+        run_ids.add(kwargs["run_id"])
         actions.append(ThreadModel.run_ids.set(list(run_ids)))
-    if kwargs.get("log") is not None:
-        actions.append(ThreadModel.log.set(kwargs.get("log")))
     thread.update(actions=actions)
     return
 
@@ -640,32 +647,46 @@ def resolve_message_list_handler(info, **kwargs):
     return inquiry_funct, count_funct, args
 
 
-def insert_message_handler(info, **kwargs):
-    try:
-        thread_id = kwargs["thread_id"]
-        message_id = kwargs["message_id"]
-
+@insert_update_decorator(
+    keys={
+        "hash_key": "thread_id",
+        "range_key": "message_id",
+    },
+    model_funct=get_message,
+    count_funct=get_message_count,
+    type_funct=get_message_type,
+    range_key_required=True,
+    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
+    # activity_history_funct=None,
+)
+def insert_update_message_handler(info, **kwargs):
+    thread_id = kwargs["thread_id"]
+    message_id = kwargs["message_id"]
+    if kwargs.get("entity") is None:
         MessageModel(
             thread_id,
             message_id,
             **{
+                "run_id": kwargs.get("run_id"),
                 "role": kwargs["role"],
                 "message": kwargs["message"],
                 "created_at": kwargs["created_at"],
             },
         ).save()
+        return
 
-        info.context.get("logger").info(
-            f"The message with the thread_id/message_id ({thread_id}/{message_id}) is inserted at {time.strftime('%X')}."
-        )
-
-        return get_message_type(
-            info,
-            get_message(thread_id, message_id),
-        )
-    except Exception as e:
-        info.context.get("logger").error(e)
-        raise e
+    message = kwargs.get("entity")
+    actions = []
+    if kwargs.get("run_id") is not None:
+        actions.append(MessageModel.run_id.set(kwargs["run_id"]))
+    if kwargs.get("role") is not None:
+        actions.append(MessageModel.role.set(kwargs["role"]))
+    if kwargs.get("message") is not None:
+        actions.append(MessageModel.role.set(kwargs["message"]))
+    if kwargs.get("created_at") is not None:
+        actions.append(MessageModel.created_at.set(kwargs["created_at"]))
+    message.update(actions=actions)
+    return
 
 
 @delete_decorator(
