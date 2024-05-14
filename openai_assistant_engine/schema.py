@@ -11,12 +11,46 @@ from .queries import (
     resolve_ask_open_ai,
     resolve_last_message,
     resolve_current_run,
+    resolve_assistant,
+    resolve_assistant_list,
+    resolve_thread,
+    resolve_thread_list,
+    resolve_message,
+    resolve_message_list,
 )
-from .types import AskOpenAIType, LastMessageType, CurrentRunType
+from .mutations import (
+    InsertUpdateAssistant,
+    DeleteAssistant,
+    InsertUpdateThread,
+    DeleteThread,
+    InsertUpdateMessage,
+    DeleteMessage,
+)
+from .types import (
+    AskOpenAIType,
+    LastMessageType,
+    CurrentRunType,
+    AssistantType,
+    AssistantListType,
+    ThreadType,
+    ThreadListType,
+    MessageType,
+    MessageListType,
+)
 
 
 def type_class():
-    return [AskOpenAIType, LastMessageType, CurrentRunType]
+    return [
+        AskOpenAIType,
+        LastMessageType,
+        CurrentRunType,
+        AssistantType,
+        AssistantListType,
+        ThreadType,
+        ThreadListType,
+        MessageType,
+        MessageListType,
+    ]
 
 
 class Query(ObjectType):
@@ -47,6 +81,53 @@ class Query(ObjectType):
         updated_by=String(required=True),
     )
 
+    assistant = Field(
+        AssistantType,
+        required=True,
+        assistant_type=String(required=True),
+        assistant_id=String(required=True),
+    )
+
+    assistant_list = Field(
+        AssistantListType,
+        page_number=Int(),
+        limit=Int(),
+        assistant_type=String(),
+        assistant_name=String(),
+    )
+
+    thread = Field(
+        ThreadType,
+        required=True,
+        assistant_id=String(),
+        thread_id=String(),
+    )
+
+    thread_list = Field(
+        ThreadListType,
+        page_number=Int(),
+        limit=Int(),
+        assistant_id=String(),
+        assistant_type=String(),
+        run_id=String(),
+    )
+
+    message = Field(
+        MessageType,
+        required=True,
+        thread_id=String(required=True),
+        message_id=String(required=True),
+    )
+
+    message_list = Field(
+        MessageListType,
+        page_number=Int(),
+        limit=Int(),
+        assistant_id=String(),
+        assistant_type=String(),
+        run_id=String(),
+    )
+
     def resolve_ping(self, info):
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -59,6 +140,29 @@ class Query(ObjectType):
     def resolve_current_run(self, info, **kwargs):
         return resolve_current_run(info, **kwargs)
 
+    def resolve_assistant(self, info, **kwargs):
+        return resolve_assistant(info, **kwargs)
+
+    def resolve_assistant_list(self, info, **kwargs):
+        return resolve_assistant_list(info, **kwargs)
+
+    def resolve_thread(self, info, **kwargs):
+        return resolve_thread(info, **kwargs)
+
+    def resolve_thread_list(self, info, **kwargs):
+        return resolve_thread_list(info, **kwargs)
+
+    def resolve_message(self, info, **kwargs):
+        return resolve_message(info, **kwargs)
+
+    def resolve_message_list(self, info, **kwargs):
+        return resolve_message_list(info, **kwargs)
+
 
 class Mutations(ObjectType):
-    pass
+    insert_update_assistant = InsertUpdateAssistant.Field()
+    delete_assistant = DeleteAssistant.Field()
+    insert_update_thread = InsertUpdateThread.Field()
+    delete_thread = DeleteThread.Field()
+    insert_update_message = InsertUpdateMessage.Field()
+    delete_message = DeleteMessage.Field()
