@@ -20,6 +20,62 @@ fragment CurrentRunInfo on CurrentRunType {
     status
 }
 
+fragment AssistantInfo on AssistantType {
+    assistantType
+    assistantId
+    assistantName
+    functions
+    updatedBy
+    createdAt
+    updatedAt
+}
+
+fragment AssistantListInfo on AssistantListType {
+    assistantList{
+        ...AssistantInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+fragment ThreadInfo on ThreadType {
+    assistantId
+    threadId
+    assistantType
+    runIds
+    updatedBy
+    createdAt
+    updatedBy
+}
+
+fragment ThreadListInfo on ThreadListType {
+    threadList{
+        ...ThreadInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+fragment MessageInfo on MessageType {
+    threadId
+    runId
+    messageId
+    role
+    message
+    createdAt
+}
+
+fragment MessageListInfo on MessageListType {
+    messageList{
+        ...MessageInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
 query ping {
     ping
 }
@@ -67,5 +123,189 @@ query getCurrentRun(
         updatedBy: $updatedBy
     ){
         ...CurrentRunInfo
+    }
+}
+
+query getAssistant(
+    $assistantType: String!,
+    $assistantId: String!
+) {
+    assistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId
+    ) {
+        ...AssistantInfo
+    }
+}
+
+query getAssistantList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $assistantType: String!,
+    $assistantName: String!
+) {
+    assistantList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        assistantType: $assistantType,
+        assistantName: $assistantName
+    ) {
+        ...AssistantListInfo
+    }
+}
+
+mutation insertUpdateAssistant(
+    $assistantType: String!,
+    $assistantId: String!,
+    $assistantName: String!,
+    $functions: [JSON]!,
+    $updatedBy: String!
+) {
+    insertUpdateAssistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId,
+        assistantName: $assistantName,
+        functions: $functions,
+        updatedBy: $updatedBy
+    ) {
+        assistant{
+            ...AssistantInfo
+        }
+    }
+}
+
+mutation deleteAssistant(
+    $assistantType: String!,
+    $assistantId: String!
+) {
+    deleteAssistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId
+    ) {
+        ok
+    }
+}
+
+query getThread(
+    $assistantId: String!,
+    $threadId: String!
+) {
+    thread(
+        assistantId: $assistantId,
+        threadId: $threadId
+    ) {
+        ...ThreadInfo
+    }
+}
+
+query getThreadList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $assistantId: String,
+    $assistantTypes: [String]
+) {
+    threadList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        assistantId: $assistantId,
+        assistantTypes: $assistantTypes
+    ) {
+        ...ThreadListInfo
+    }
+}
+
+mutation insertUpdateThread(
+    $assistantId: String!,
+    $threadId: String!,
+    $assistantType: String!,
+    $runId: String,
+    $updatedBy: String!
+) {
+    insertUpdateThread(
+        assistantId: $assistantId,
+        threadId: $threadId,
+        assistantType: $assistantType,
+        runId: $runId,
+        updatedBy: $updatedBy
+    ) {
+        thread{
+            ...ThreadInfo
+        }
+    }
+}
+
+mutation deleteThread(
+    $assistantId: String!,
+    $threadId: String!
+) {
+    deleteThread(
+        assistantId: $assistantId,
+        threadId: $threadId
+    ) {
+        ok
+    }
+}
+
+query getMessage(
+    $threadId: String!,
+    $messageId: String!
+) {
+    message(
+        threadId: $threadId,
+        messageId: $messageId
+    ) {
+        ...MessageInfo
+    }
+}
+
+query getMessageList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $threadId: String,
+    $roles: [String],
+    $message: String
+) {
+    messageList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        threadId: $threadId,
+        roles: $roles,
+        message: $message
+    ) {
+        ...MessageListInfo
+    }
+}
+
+mutation insertUpdateMessage(
+    $threadId: String!,
+    $messageId: String!,
+    $runId: String!,
+    $role: String!,
+    $message: String!,
+    $createdAt: DateTime!
+) {
+    insertUpdateMessage(
+        threadId: $threadId,
+        messageId: $messageId,
+        runId: $runId,
+        role: $role,
+        message: $message,
+        createdAt: $createdAt
+    ) {
+        message{
+            ...MessageInfo
+        }
+    }
+}
+
+mutation deleteMessage(
+    $threadId: String!,
+    $messageId: String!
+) {
+    deleteMessage(
+        threadId: $threadId,
+        messageId: $messageId
+    ) {
+        ok
     }
 }

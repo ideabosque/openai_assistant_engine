@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import threading, functools
+import threading, functools, traceback
 from datetime import datetime
 from queue import Queue
 from typing_extensions import override
@@ -48,7 +48,8 @@ def handlers_init(logger, **setting):
         # ]  ## It will be replaced with the table.
 
     except Exception as e:
-        logger.error(e)
+        log = traceback.format_exc()
+        logger.error(log)
         raise e
 
 
@@ -78,7 +79,8 @@ def get_assistant_function(logger, assistant_type, assistant_id, function_name):
             function_name,
         )
     except Exception as e:
-        logger.error(e)
+        log = traceback.format_exc()
+        logger.error(log)
         raise e
 
 
@@ -133,7 +135,8 @@ def assistant_decorator():
                 return result
 
             except Exception as e:
-                args[0].context.get("logger").error(e)
+                log = traceback.format_exc()
+                args[0].context.get("logger").error(log)
                 raise e
 
         return wrapper_function
@@ -227,7 +230,8 @@ def get_messages_for_the_conversation(
             )
         return messages
     except Exception as e:
-        logger.error(e)
+        log = traceback.format_exc()
+        logger.error(log)
         raise e
 
 
@@ -243,7 +247,8 @@ def current_run_handler(info, **kwargs):
             thread_id=thread_id, run_id=run_id, status=current_run.status
         )
     except Exception as e:
-        info.context.get("logger").error(e)
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -273,7 +278,8 @@ def last_message_handler(info, **kwargs):
             ).astimezone(timezone("UTC"))
         return last_message
     except Exception as e:
-        info.context.get("logger").error(e)
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -310,7 +316,8 @@ def get_current_run_id_and_start_async_task(
 
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
-        logger.error(e)
+        log = traceback.format_exc()
+        logger.error(log)
         raise e
 
 
@@ -342,7 +349,8 @@ def ask_open_ai_handler(info, **kwargs):
         )
 
     except Exception as e:
-        info.context.get("logger").error(e)
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -420,6 +428,7 @@ def resolve_assistant_list_handler(info, **kwargs):
     model_funct=get_assistant,
     count_funct=get_assistant_count,
     type_funct=get_assistant_type,
+    range_key_required=True,
     # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
     # activity_history_funct=None,
 )
@@ -432,7 +441,7 @@ def insert_update_assistant_handler(info, **kwargs):
             assistant_id,
             **{
                 "assistant_name": kwargs.get("assistant_name"),
-                "functoins": kwargs.get("functoins"),
+                "functions": kwargs.get("functions"),
                 "updated_by": kwargs.get("updated_by"),
                 "created_at": datetime.now(tz=timezone("UTC")),
                 "updated_at": datetime.now(tz=timezone("UTC")),
@@ -511,7 +520,7 @@ def resolve_thread_handler(info, **kwargs):
 )
 def resolve_thread_list_handler(info, **kwargs):
     assistant_id = kwargs.get("assistant_id")
-    assistant_type = kwargs.get("assistant_type")
+    assistant_types = kwargs.get("assistant_types")
     run_id = kwargs.get("run_id")
 
     args = []
@@ -522,8 +531,8 @@ def resolve_thread_list_handler(info, **kwargs):
         inquiry_funct = ThreadModel.query
 
     the_filters = None  # We can add filters for the query.
-    if assistant_type:
-        the_filters &= ThreadModel.assistant_type.contains(assistant_type)
+    if assistant_types:
+        the_filters &= ThreadModel.assistant_type.is_in(*assistant_types)
     if run_id:
         the_filters &= ThreadModel.run_ids.contains(run_id)
     if the_filters is not None:

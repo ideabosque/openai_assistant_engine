@@ -21,6 +21,9 @@ document = Path(
 ).read_text()
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/redis_search")
+# sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
+# sys.path.insert(1, "/var/www/projects/redis_search")
+
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -46,7 +49,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -112,6 +115,191 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "AI:",
                 last_message,
             )
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_assistant(self):
+        variables = {
+            "assistantType": "agent",
+            "assistantId": "123456",
+            "assistantName": "Agent ABC",
+            "functions": {},
+            "updatedBy": "user abc",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateAssistant",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_assistant(self):
+        variables = {
+            "assistantType": "agent",
+            "assistantId": "123456",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteAssistant",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_assistant(self):
+        variables = {
+            "assistantType": "agent",
+            "assistantId": "123456",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getAssistant",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_assistant_list(self):
+        variables = {
+            "assistantType": "agent",
+            "assistantName": "Agent ABC",
+            "pageNumber": 1,
+            "limit": 100,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getAssistantList",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_thread(self):
+        variables = {
+            "assistantId": "123456",
+            "threadId": "XXXXXX",
+            "assistantType": "agent",
+            "runId": "XXXXXX",
+            "updatedBy": "user abc",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateThread",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_thread(self):
+        variables = {
+            "assistantId": "123456",
+            "threadId": "XXXXXX",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteThread",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_thread(self):
+        variables = {
+            "assistantId": "123456",
+            "threadId": "XXXXXX",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getThread",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_thread_list(self):
+        variables = {
+            "assistantId": "123456",
+            "assistantTypes": ["agent"],
+            "pageNumber": 1,
+            "limit": 100,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getThreadList",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_message(self):
+        variables = {
+            "threadId": "XXXXXX",
+            "messageId": "123456",
+            "runId": "XXXXXX",
+            "role": "assistant",
+            "message": "Hello, how are you?",
+            "createdAt": "2024-05-13T23:23:32.000000+0000",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_message(self):
+        variables = {
+            "threadId": "XXXXXX",
+            "messageId": "123456",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_message(self):
+        variables = {
+            "threadId": "XXXXXX",
+            "messageId": "123456",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_message_list(self):
+        variables = {
+            # "threadId": "XXXXXX",
+            "roles": ["user", "assistant"],
+            # "message": "Hello, how are you?",
+            "pageNumber": 1,
+            "limit": 100,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getMessageList",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
 
 
 if __name__ == "__main__":
