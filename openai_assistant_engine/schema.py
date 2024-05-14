@@ -108,7 +108,7 @@ class Query(ObjectType):
         page_number=Int(),
         limit=Int(),
         assistant_id=String(),
-        assistant_type=String(),
+        assistant_types=List(String),
         run_id=String(),
     )
 
@@ -123,9 +123,9 @@ class Query(ObjectType):
         MessageListType,
         page_number=Int(),
         limit=Int(),
-        assistant_id=String(),
-        assistant_type=String(),
-        run_id=String(),
+        thread_id=String(),
+        roles=List(String),
+        message=String(),
     )
 
     def resolve_ping(self, info):

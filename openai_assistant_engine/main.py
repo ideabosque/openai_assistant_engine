@@ -29,7 +29,7 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
     def open_assistant_graphql(self, **params):
         schema = Schema(
             query=Query,
-            # mutation=Mutations,
+            mutation=Mutations,
             types=type_class(),
         )
         return self.graphql_execute(schema, **params)
