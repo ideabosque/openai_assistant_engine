@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import threading, functools, time
+import threading, functools
 from datetime import datetime
 from queue import Queue
 from typing_extensions import override
@@ -215,10 +215,14 @@ def get_messages_for_the_conversation(
             logger.info(f"{m.role}: {m.content[0].text.value}")
             messages.append(
                 {
-                    "id": m.id,
-                    "created_at": m.created_at,
+                    "thread_id": m.thread_id,
+                    "message_id": m.id,
+                    "created_at": datetime.fromtimestamp(m.created_at).astimezone(
+                        timezone("UTC")
+                    ),
                     "role": m.role,
-                    "value": m.content[0].text.value,
+                    "message": m.content[0].text.value,
+                    "run_id": m.run_id,
                 }
             )
         return messages
@@ -306,7 +310,7 @@ def get_current_run_id_and_start_async_task(
 
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
-        logger.context.get("logger").error(e)
+        logger.error(e)
         raise e
 
 
