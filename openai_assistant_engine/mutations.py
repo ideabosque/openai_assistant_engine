@@ -10,7 +10,6 @@ from graphene import (
     Field,
     Mutation,
     Boolean,
-    String,
     List,
     DateTime,
     Int,
@@ -26,6 +25,7 @@ from .handlers import (
     insert_update_message_handler,
     delete_message_handler,
 )
+from typing import Dict, Any
 
 
 class InsertUpdateAssistant(Mutation):
@@ -39,7 +39,9 @@ class InsertUpdateAssistant(Mutation):
         updated_by = String(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(
+        root: Any, info: Any, **kwargs: Dict[str, Any]
+    ) -> "InsertUpdateAssistant":
         try:
             assistant = insert_update_assistant_handler(info, **kwargs)
         except Exception as e:
@@ -58,7 +60,7 @@ class DeleteAssistant(Mutation):
         assistant_id = String(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteAssistant":
         try:
             ok = delete_assistant_handler(info, **kwargs)
         except Exception as e:
@@ -80,7 +82,7 @@ class InsertUpdateThread(Mutation):
         updated_by = String(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateThread":
         try:
             thread = insert_update_thread_handler(info, **kwargs)
         except Exception as e:
@@ -99,7 +101,7 @@ class DeleteThread(Mutation):
         thread_id = String(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteThread":
         try:
             ok = delete_thread_handler(info, **kwargs)
         except Exception as e:
@@ -122,7 +124,7 @@ class InsertUpdateMessage(Mutation):
         created_at = DateTime(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateMessage":
         try:
             message = insert_update_message_handler(info, **kwargs)
         except Exception as e:
@@ -141,7 +143,7 @@ class DeleteMessage(Mutation):
         message_id = String(required=True)
 
     @staticmethod
-    def mutate(root, info, **kwargs):
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteMessage":
         try:
             ok = delete_message_handler(info, **kwargs)
         except Exception as e:
