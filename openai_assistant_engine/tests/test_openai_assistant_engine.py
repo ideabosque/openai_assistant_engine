@@ -20,9 +20,9 @@ document = Path(
     os.path.join(os.path.dirname(__file__), "openai_assistant_engine.graphql")
 ).read_text()
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
-sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/redis_search")
+sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/redis_stack_connector")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
-# sys.path.insert(1, "/var/www/projects/redis_search")
+# sys.path.insert(1, "/var/www/projects/redis_stack_connector")
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)

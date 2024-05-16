@@ -4,7 +4,8 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import threading, functools, traceback
+import threading, functools, traceback, logging
+from typing import Callable, Optional, List, Dict, Any
 from datetime import datetime
 from queue import Queue
 from typing_extensions import override
@@ -31,32 +32,27 @@ from .types import (
 )
 from tenacity import retry, wait_exponential, stop_after_attempt
 from pytz import timezone
+from graphene import ResolveInfo
 
 client = None
-# assistant_functions = None  ## It will be replaced with the table.
 
 
-def handlers_init(logger, **setting):
+def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     global client
-    # , assistant_functions
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
-        # assistant_functions = setting[
-        #     "assistant_functions"
-        # ]  ## It will be replaced with the table.
-
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
         raise e
 
 
-def get_assistant_function(logger, assistant_type, assistant_id, function_name):
+def get_assistant_function(
+    logger: logging.Logger, assistant_type: str, assistant_id: str, function_name: str
+) -> Optional[Callable]:
     try:
-        ## Get funct by assistant_id and function_name.
-        ## It will be replaced with the table.
         assistant = get_assistant(assistant_type, assistant_id)
         assistant_functions = list(
             filter(lambda x: x["function_name"] == function_name, assistant.functions)
@@ -84,7 +80,9 @@ def get_assistant_function(logger, assistant_type, assistant_id, function_name):
         raise e
 
 
-def update_thread_and_insert_message(info, kwargs, result, role):
+def update_thread_and_insert_message(
+    info: ResolveInfo, kwargs: Dict[str, Any], result: Any, role: str
+) -> None:
     update_kwargs = {
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
@@ -107,23 +105,17 @@ def update_thread_and_insert_message(info, kwargs, result, role):
         message=last_message.message,
         created_at=last_message.created_at,
     )
-    return
 
 
-## We can move the decorator to the uplevel.
-def assistant_decorator():
-    def actual_decorator(original_function):
+def assistant_decorator() -> Callable:
+    def actual_decorator(original_function: Callable) -> Callable:
         @functools.wraps(original_function)
-        def wrapper_function(*args, **kwargs):
-
+        def wrapper_function(*args, **kwargs) -> Any:
             function_name = original_function.__name__
             try:
-
                 result = original_function(*args, **kwargs)
-
                 if function_name == "ask_open_ai_handler":
                     update_thread_and_insert_message(args[0], kwargs, result, "user")
-
                 elif (
                     function_name == "current_run_handler"
                     and result.status == "completed"
@@ -131,9 +123,7 @@ def assistant_decorator():
                     update_thread_and_insert_message(
                         args[0], kwargs, result, "assistant"
                     )
-
                 return result
-
             except Exception as e:
                 log = traceback.format_exc()
                 args[0].context.get("logger").error(log)
@@ -145,7 +135,13 @@ def assistant_decorator():
 
 
 class EventHandler(AssistantEventHandler):
-    def __init__(self, logger, assistant_type, queue=None, print_stream=False):
+    def __init__(
+        self,
+        logger: logging.Logger,
+        assistant_type: str,
+        queue: Optional[Queue] = None,
+        print_stream: bool = False,
+    ):
         self.logger = logger
         self.assistant_type = assistant_type
         self.queue = queue
@@ -153,21 +149,17 @@ class EventHandler(AssistantEventHandler):
         AssistantEventHandler.__init__(self)
 
     @override
-    def on_event(self, event):
+    def on_event(self, event: Any) -> None:
         self.logger.info(f"event: {event.event}")
         if event.event == "thread.run.created":
             self.logger.info(f"current_run_id: {event.data.id}")
             if self.queue is not None:
                 self.queue.put({"name": "current_run_id", "value": event.data.id})
-
-        # Retrieve events that are denoted with 'requires_action'
-        # since these will have our tool_calls
         if event.event == "thread.run.requires_action":
             self.handle_requires_action(event.data)
 
-    def handle_requires_action(self, data):
+    def handle_requires_action(self, data: Any) -> None:
         tool_outputs = []
-
         for tool in data.required_action.submit_tool_outputs.tool_calls:
             assistant_function = get_assistant_function(
                 self.logger, self.assistant_type, data.assistant_id, tool.function.name
@@ -176,8 +168,6 @@ class EventHandler(AssistantEventHandler):
                 raise Exception(
                     f"The function ({tool.function.name}) is not supported!!!"
                 )
-
-            # Aggregate results text for summarization
             arguments = Utility.json_loads(tool.function.arguments)
             tool_outputs.append(
                 {
@@ -185,12 +175,9 @@ class EventHandler(AssistantEventHandler):
                     "output": Utility.json_dumps(assistant_function(**arguments)),
                 }
             )
-
-        # Submit all tool_outputs at the same time
         self.submit_tool_outputs(tool_outputs)
 
-    def submit_tool_outputs(self, tool_outputs):
-        # Use the submit_tool_outputs_stream helper
+    def submit_tool_outputs(self, tool_outputs: List[Dict[str, Any]]) -> None:
         with client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
@@ -206,17 +193,20 @@ class EventHandler(AssistantEventHandler):
 
 
 def get_messages_for_the_conversation(
-    logger, thread_id, roles=["user", "assistant"], order="asc"
-):
+    logger: logging.Logger,
+    thread_id: str,
+    roles: List[str] = ["user", "assistant"],
+    order: str = "asc",
+) -> List[Dict[str, Any]]:
     try:
         messages = client.beta.threads.messages.list(thread_id=thread_id, order=order)
         logger.info("# Messages")
-        messages = []
+        messages_list = []
         for m in messages:
             if m.role not in roles:
                 continue
             logger.info(f"{m.role}: {m.content[0].text.value}")
-            messages.append(
+            messages_list.append(
                 {
                     "thread_id": m.thread_id,
                     "message_id": m.id,
@@ -228,7 +218,7 @@ def get_messages_for_the_conversation(
                     "run_id": m.run_id,
                 }
             )
-        return messages
+        return messages_list
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
@@ -236,7 +226,7 @@ def get_messages_for_the_conversation(
 
 
 @assistant_decorator()
-def current_run_handler(info, **kwargs):
+def current_run_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> CurrentRunType:
     try:
         thread_id = kwargs["thread_id"]
         run_id = kwargs["run_id"]
@@ -252,7 +242,9 @@ def current_run_handler(info, **kwargs):
         raise e
 
 
-def last_message_handler(info, **kwargs):
+def last_message_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> LastMessageType:
     try:
         thread_id = kwargs["thread_id"]
         role = kwargs["role"]
@@ -283,8 +275,13 @@ def last_message_handler(info, **kwargs):
         raise e
 
 
-# Function to handle stream operations and continue processing in the background
-def handle_stream(logger, thread_id, assistant_id, assistant_type, queue):
+def handle_stream(
+    logger: logging.Logger,
+    thread_id: str,
+    assistant_id: str,
+    assistant_type: str,
+    queue: Queue,
+) -> None:
     event_handler = EventHandler(logger, assistant_type, queue=queue)
     with client.beta.threads.runs.stream(
         thread_id=thread_id, assistant_id=assistant_id, event_handler=event_handler
@@ -293,27 +290,18 @@ def handle_stream(logger, thread_id, assistant_id, assistant_type, queue):
 
 
 def get_current_run_id_and_start_async_task(
-    logger, thread_id, assistant_id, assistant_type
-):
+    logger: logging.Logger, thread_id: str, assistant_id: str, assistant_type: str
+) -> str:
     try:
-        # Create a queue to share data between threads
         queue = Queue()
-
-        # Start the thread to handle the stream
         stream_thread = threading.Thread(
             target=handle_stream,
             args=(logger, thread_id, assistant_id, assistant_type, queue),
         )
         stream_thread.start()
-
-        # Fetch the final_run_id from the queue
-        q = (
-            queue.get()
-        )  # This will block until the current_run_id is put into the queue by the thread
-
+        q = queue.get()
         if q["name"] == "current_run_id":
             return q["value"]
-
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
@@ -322,7 +310,7 @@ def get_current_run_id_and_start_async_task(
 
 
 @assistant_decorator()
-def ask_open_ai_handler(info, **kwargs):
+def ask_open_ai_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenAIType:
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
@@ -336,7 +324,6 @@ def ask_open_ai_handler(info, **kwargs):
             thread_id=thread_id, role="user", content=question
         )
 
-        # Start the stream processing in a thread and fetch the final_run_id
         current_run_id = get_current_run_id_and_start_async_task(
             info.context.get("logger"), thread_id, assistant_id, assistant_type
         )
@@ -359,35 +346,37 @@ def ask_open_ai_handler(info, **kwargs):
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_assistant(assistant_type, assistant_id):
+def get_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
     return AssistantModel.get(assistant_type, assistant_id)
 
 
-def _get_assistant(assistant_type, assistant_id):
+def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
     assistant = get_assistant(assistant_type, assistant_id)
     return {
         "assistant_type": assistant.assistant_type,
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
-        "functoins": assistant.functoins,
+        "functions": assistant.functions,
         "updated_by": assistant.updated_by,
         "created_at": assistant.created_at,
         "updated_at": assistant.updated_at,
     }
 
 
-def get_assistant_count(assistant_type, assistant_id):
+def get_assistant_count(assistant_type: str, assistant_id: str) -> int:
     return AssistantModel.count(
         assistant_type, AssistantModel.assistant_id == assistant_id
     )
 
 
-def get_assistant_type(info, assistant):
+def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> AssistantType:
     assistant = assistant.__dict__["attribute_values"]
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
 
 
-def resolve_assistant_handler(info, **kwargs):
+def resolve_assistant_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> AssistantType:
     return get_assistant_type(
         info,
         get_assistant(kwargs.get("assistant_type"), kwargs.get("assistant_id")),
@@ -400,7 +389,7 @@ def resolve_assistant_handler(info, **kwargs):
     list_type_class=AssistantListType,
     type_funct=get_assistant_type,
 )
-def resolve_assistant_list_handler(info, **kwargs):
+def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     assistant_type = kwargs.get("assistant_type")
     assistant_name = kwargs.get("assistant_name")
 
@@ -411,7 +400,7 @@ def resolve_assistant_list_handler(info, **kwargs):
         args = [assistant_type, None]
         inquiry_funct = AssistantModel.query
 
-    the_filters = None  # We can add filters for the query.
+    the_filters = None
     if assistant_name:
         the_filters &= AssistantModel.assistant_name.contains(assistant_name)
     if the_filters is not None:
@@ -429,10 +418,10 @@ def resolve_assistant_list_handler(info, **kwargs):
     count_funct=get_assistant_count,
     type_funct=get_assistant_type,
     range_key_required=True,
-    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
-    # activity_history_funct=None,
 )
-def insert_update_assistant_handler(info, **kwargs):
+def insert_update_assistant_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> None:
     assistant_type = kwargs.get("assistant_type")
     assistant_id = kwargs.get("assistant_id")
     if kwargs.get("entity") is None:
@@ -456,10 +445,9 @@ def insert_update_assistant_handler(info, **kwargs):
     ]
     if kwargs.get("assistant_name") is not None:
         actions.append(AssistantModel.assistant_name.set(kwargs.get("assistant_name")))
-    if kwargs.get("functoins") is not None:
-        actions.append(AssistantModel.functoins.set(kwargs.get("functoins")))
+    if kwargs.get("functions") is not None:
+        actions.append(AssistantModel.functions.set(kwargs.get("functions")))
     assistant.update(actions=actions)
-    return
 
 
 @delete_decorator(
@@ -469,7 +457,7 @@ def insert_update_assistant_handler(info, **kwargs):
     },
     model_funct=get_assistant,
 )
-def delete_assistant_handler(info, **kwargs):
+def delete_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True
 
@@ -479,11 +467,11 @@ def delete_assistant_handler(info, **kwargs):
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_thread(assistant_id, thread_id):
+def get_thread(assistant_id: str, thread_id: str) -> ThreadModel:
     return ThreadModel.get(assistant_id, thread_id)
 
 
-def _get_thread(assistant_id, thread_id):
+def _get_thread(assistant_id: str, thread_id: str) -> Dict[str, Any]:
     thread = get_thread(assistant_id, thread_id)
     return {
         "assistant_id": thread.assistant_id,
@@ -496,16 +484,16 @@ def _get_thread(assistant_id, thread_id):
     }
 
 
-def get_thread_count(assistant_id, thread_id):
+def get_thread_count(assistant_id: str, thread_id: str) -> int:
     return ThreadModel.count(assistant_id, ThreadModel.thread_id == thread_id)
 
 
-def get_thread_type(info, thread):
+def get_thread_type(info: ResolveInfo, thread: ThreadModel) -> ThreadType:
     thread = thread.__dict__["attribute_values"]
     return ThreadType(**Utility.json_loads(Utility.json_dumps(thread)))
 
 
-def resolve_thread_handler(info, **kwargs):
+def resolve_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> ThreadType:
     return get_thread_type(
         info,
         get_thread(kwargs.get("assistant_id"), kwargs.get("thread_id")),
@@ -518,7 +506,7 @@ def resolve_thread_handler(info, **kwargs):
     list_type_class=ThreadListType,
     type_funct=get_thread_type,
 )
-def resolve_thread_list_handler(info, **kwargs):
+def resolve_thread_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     assistant_id = kwargs.get("assistant_id")
     assistant_types = kwargs.get("assistant_types")
     run_id = kwargs.get("run_id")
@@ -530,7 +518,7 @@ def resolve_thread_list_handler(info, **kwargs):
         args = [assistant_id, None]
         inquiry_funct = ThreadModel.query
 
-    the_filters = None  # We can add filters for the query.
+    the_filters = None
     if assistant_types:
         the_filters &= ThreadModel.assistant_type.is_in(*assistant_types)
     if run_id:
@@ -550,10 +538,8 @@ def resolve_thread_list_handler(info, **kwargs):
     count_funct=get_thread_count,
     type_funct=get_thread_type,
     range_key_required=True,
-    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
-    # activity_history_funct=None,
 )
-def insert_update_thread_handler(info, **kwargs):
+def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
     assistant_id = kwargs["assistant_id"]
     thread_id = kwargs["thread_id"]
     if kwargs.get("entity") is None:
@@ -580,7 +566,6 @@ def insert_update_thread_handler(info, **kwargs):
         run_ids.add(kwargs["run_id"])
         actions.append(ThreadModel.run_ids.set(list(run_ids)))
     thread.update(actions=actions)
-    return
 
 
 @delete_decorator(
@@ -590,7 +575,7 @@ def insert_update_thread_handler(info, **kwargs):
     },
     model_funct=get_thread,
 )
-def delete_thread_handler(info, **kwargs):
+def delete_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True
 
@@ -600,11 +585,11 @@ def delete_thread_handler(info, **kwargs):
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_message(thread_id, message_id):
+def get_message(thread_id: str, message_id: str) -> MessageModel:
     return MessageModel.get(thread_id, message_id)
 
 
-def _get_message(thread_id, message_id):
+def _get_message(thread_id: str, message_id: str) -> Dict[str, Any]:
     message = get_message(thread_id, message_id)
     return {
         "thread_id": message.thread_id,
@@ -615,16 +600,16 @@ def _get_message(thread_id, message_id):
     }
 
 
-def get_message_count(thread_id, message_id):
+def get_message_count(thread_id: str, message_id: str) -> int:
     return MessageModel.count(thread_id, MessageModel.message_id == message_id)
 
 
-def get_message_type(info, message):
+def get_message_type(info: ResolveInfo, message: MessageModel) -> MessageType:
     message = message.__dict__["attribute_values"]
     return MessageType(**Utility.json_loads(Utility.json_dumps(message)))
 
 
-def resolve_message_handler(info, **kwargs):
+def resolve_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> MessageType:
     return get_message_type(
         info,
         get_message(kwargs.get("thread_id"), kwargs.get("message_id")),
@@ -637,7 +622,7 @@ def resolve_message_handler(info, **kwargs):
     list_type_class=MessageListType,
     type_funct=get_message_type,
 )
-def resolve_message_list_handler(info, **kwargs):
+def resolve_message_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     thread_id = kwargs.get("thread_id")
     roles = kwargs.get("roles")
     message = kwargs.get("message")
@@ -649,7 +634,7 @@ def resolve_message_list_handler(info, **kwargs):
         args = [thread_id, None]
         inquiry_funct = MessageModel.query
 
-    the_filters = None  # We can add filters for the query.
+    the_filters = None
     if roles:
         the_filters &= MessageModel.role.is_in(*roles)
     if message:
@@ -669,10 +654,8 @@ def resolve_message_list_handler(info, **kwargs):
     count_funct=get_message_count,
     type_funct=get_message_type,
     range_key_required=True,
-    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
-    # activity_history_funct=None,
 )
-def insert_update_message_handler(info, **kwargs):
+def insert_update_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
     thread_id = kwargs["thread_id"]
     message_id = kwargs["message_id"]
     if kwargs.get("entity") is None:
@@ -695,11 +678,10 @@ def insert_update_message_handler(info, **kwargs):
     if kwargs.get("role") is not None:
         actions.append(MessageModel.role.set(kwargs["role"]))
     if kwargs.get("message") is not None:
-        actions.append(MessageModel.role.set(kwargs["message"]))
+        actions.append(MessageModel.message.set(kwargs["message"]))
     if kwargs.get("created_at") is not None:
         actions.append(MessageModel.created_at.set(kwargs["created_at"]))
     message.update(actions=actions)
-    return
 
 
 @delete_decorator(
@@ -709,6 +691,6 @@ def insert_update_message_handler(info, **kwargs):
     },
     model_funct=get_message,
 )
-def delete_message_handler(info, **kwargs):
+def delete_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True

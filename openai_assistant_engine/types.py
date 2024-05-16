@@ -16,66 +16,67 @@ from graphene import (
 )
 from silvaengine_utility import JSON
 from silvaengine_dynamodb_base import ListObjectType
+from datetime import datetime
 
 
 class AskOpenAIType(ObjectType):
-    assistant_id = String()
-    thread_id = String()
-    question = String()
-    current_run_id = String()
+    assistant_id: str = String()
+    thread_id: str = String()
+    question: str = String()
+    current_run_id: str = String()
 
 
 class LastMessageType(ObjectType):
-    thread_id = String()
-    run_id = String()
-    message_id = String()
-    role = String()
-    message = String()
-    created_at = DateTime()
+    thread_id: str = String()
+    run_id: str = String()
+    message_id: str = String()
+    role: str = String()
+    message: str = String()
+    created_at: datetime = DateTime()
 
 
 class CurrentRunType(ObjectType):
-    thread_id = String()
-    run_id = String()
-    status = String()
+    thread_id: str = String()
+    run_id: str = String()
+    status: str = String()
 
 
 class AssistantType(ObjectType):
-    assistant_type = String()
-    assistant_id = String()
-    assistant_name = String()
-    functions = List(JSON)
-    updated_by = String()
-    created_at = DateTime()
-    updated_at = DateTime()
+    assistant_type: str = String()
+    assistant_id: str = String()
+    assistant_name: str = String()
+    functions: list = List(JSON)
+    updated_by: str = String()
+    created_at: datetime = DateTime()
+    updated_at: datetime = DateTime()
 
 
 class ThreadType(ObjectType):
-    assistant_id = String()
-    thread_id = String()
-    assistant_type = String()
-    run_ids = List(String)
-    updated_by = String()
-    created_at = DateTime()
-    updated_at = DateTime()
+    assistant_id: str = String()
+    thread_id: str = String()
+    assistant_type: str = String()
+    run_ids: list = List(String)
+    updated_by: str = String()
+    created_at: datetime = DateTime()
+    updated_at: datetime = DateTime()
 
 
 class MessageType(ObjectType):
-    thread_id = String()
-    run_id = String()
-    message_id = String()
-    role = String()
-    message = String()
-    created_at = DateTime()
+    thread_id: str = String()
+    run_id: str = String()
+    message_id: str = String()
+    role: str = String()
+    message: str = String()
+    created_at: datetime = DateTime()
 
 
 class AssistantListType(ListObjectType):
-    assistant_list = List(AssistantType)
+    assistant_list: list = List(AssistantType)
 
 
 class ThreadListType(ListObjectType):
-    thread_list = List(ThreadType)
+    thread_list: list = List(ThreadType)
 
 
 class MessageListType(ListObjectType):
-    message_list = List(MessageType)
+    message_list: list = List(MessageType)
