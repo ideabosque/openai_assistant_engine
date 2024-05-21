@@ -22,7 +22,7 @@ from datetime import datetime
 class AskOpenAIType(ObjectType):
     assistant_id: str = String()
     thread_id: str = String()
-    question: str = String()
+    user_query: str = String()
     current_run_id: str = String()
 
 

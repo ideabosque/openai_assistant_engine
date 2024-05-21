@@ -314,14 +314,14 @@ def ask_open_ai_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenA
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
-        question = kwargs["question"]
+        user_query = kwargs["user_query"]
         thread_id = kwargs.get("thread_id")
         if thread_id is None:
             thread = client.beta.threads.create()
             thread_id = thread.id
 
         client.beta.threads.messages.create(
-            thread_id=thread_id, role="user", content=question
+            thread_id=thread_id, role="user", content=user_query
         )
 
         current_run_id = get_current_run_id_and_start_async_task(
@@ -331,7 +331,7 @@ def ask_open_ai_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenA
         return AskOpenAIType(
             assistant_id=kwargs["assistant_id"],
             thread_id=thread_id,
-            question=kwargs["question"],
+            user_query=kwargs["user_query"],
             current_run_id=current_run_id,
         )
 

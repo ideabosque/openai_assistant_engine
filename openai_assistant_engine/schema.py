@@ -62,7 +62,7 @@ class Query(ObjectType):
         required=True,
         assistant_type=String(required=True),
         assistant_id=String(required=True),
-        question=String(required=True),
+        user_query=String(required=True),
         updated_by=String(required=True),
         thread_id=String(),
     )
