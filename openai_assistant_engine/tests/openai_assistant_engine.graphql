@@ -1,7 +1,7 @@
 fragment AskOpenAIInfo on AskOpenAIType {
     assistantId
     threadId
-    question
+    userQuery
     currentRunId
 }
 
@@ -83,14 +83,14 @@ query ping {
 query askOpenAi(
     $assistantType: String!,
     $assistantId: String!,
-    $question: String!,
+    $userQuery: String!,
     $updatedBy: String!,
     $threadId: String
 ) {
     askOpenAi(
         assistantType: $assistantType,
         assistantId: $assistantId,
-        question: $question,
+        userQuery: $userQuery,
         updatedBy: $updatedBy,
         threadId: $threadId
     ) {

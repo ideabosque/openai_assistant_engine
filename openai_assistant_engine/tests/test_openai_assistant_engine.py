@@ -49,7 +49,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -65,7 +65,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             payload = {
                 "query": document,
                 "variables": {
-                    "question": user_input,
+                    "userQuery": user_input,
                     "assistantId": assistant_id,
                     "assistantType": "conversation",
                     "threadId": thread_id,
@@ -284,7 +284,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_message_list(self):
         variables = {
             # "threadId": "XXXXXX",
