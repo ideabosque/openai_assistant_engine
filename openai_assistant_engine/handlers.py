@@ -110,7 +110,7 @@ def update_thread_and_insert_message(
 def assistant_decorator() -> Callable:
     def actual_decorator(original_function: Callable) -> Callable:
         @functools.wraps(original_function)
-        def wrapper_function(*args, **kwargs) -> Any:
+        def wrapper_function(*args: List, **kwargs: Dict[str, any]) -> Any:
             function_name = original_function.__name__
             try:
                 result = original_function(*args, **kwargs)
@@ -140,12 +140,12 @@ class EventHandler(AssistantEventHandler):
         logger: logging.Logger,
         assistant_type: str,
         queue: Optional[Queue] = None,
-        print_stream: bool = False,
+        print_progress: bool = False,
     ):
         self.logger = logger
         self.assistant_type = assistant_type
         self.queue = queue
-        self.print_stream = print_stream
+        self.print_progress = print_progress
         AssistantEventHandler.__init__(self)
 
     @override
@@ -185,7 +185,7 @@ class EventHandler(AssistantEventHandler):
             tool_outputs=tool_outputs,
             event_handler=EventHandler(self.logger, self.assistant_type),
         ) as stream:
-            if self.print_stream:
+            if self.print_progress:
                 for _ in stream.text_deltas:
                     elapsed_time = time.time() - start_time
                     print(
