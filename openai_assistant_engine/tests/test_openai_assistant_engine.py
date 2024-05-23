@@ -76,7 +76,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             response = json.loads(
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
-            logger.info(response)
+            # logger.info(response)
             thread_id = response["data"]["askOpenAi"]["threadId"]
             current_run_id = response["data"]["askOpenAi"]["currentRunId"]
 
@@ -94,7 +94,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 response = json.loads(
                     self.openai_assistant_engine.open_assistant_graphql(**payload)
                 )
-                logger.info(response)
+                # logger.info(response)
                 if response["data"]["currentRun"]["status"] == "completed":
                     break
 
