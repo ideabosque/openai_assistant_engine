@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import threading, functools, traceback, logging
+import threading, functools, traceback, logging, time
 from typing import Callable, Optional, List, Dict, Any
 from datetime import datetime
 from queue import Queue
@@ -150,7 +150,7 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def on_event(self, event: Any) -> None:
-        self.logger.info(f"event: {event.event}")
+        self.logger.debug(f"event: {event.event}")
         if event.event == "thread.run.created":
             self.logger.info(f"current_run_id: {event.data.id}")
             if self.queue is not None:
@@ -178,6 +178,7 @@ class EventHandler(AssistantEventHandler):
         self.submit_tool_outputs(tool_outputs)
 
     def submit_tool_outputs(self, tool_outputs: List[Dict[str, Any]]) -> None:
+        start_time = time.time()
         with client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
@@ -185,9 +186,14 @@ class EventHandler(AssistantEventHandler):
             event_handler=EventHandler(self.logger, self.assistant_type),
         ) as stream:
             if self.print_stream:
-                for text in stream.text_deltas:
-                    print(text, end="", flush=True)
-                print()
+                for _ in stream.text_deltas:
+                    elapsed_time = time.time() - start_time
+                    print(
+                        f"\rElapsed Time: {elapsed_time:.2f} seconds ({self.current_event.event}).",
+                        end="",
+                        flush=True,
+                    )
+                print()  # To move to the next line after completion
             else:
                 stream.until_done()
 
