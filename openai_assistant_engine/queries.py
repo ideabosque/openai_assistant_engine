@@ -9,11 +9,11 @@ from typing import Any, Dict
 from graphene import ResolveInfo
 
 from .handlers import (
-    ask_open_ai_handler,
-    current_run_handler,
-    last_message_handler,
+    resolve_ask_open_ai_handler,
     resolve_assistant_handler,
     resolve_assistant_list_handler,
+    resolve_current_run_handler,
+    resolve_last_message_handler,
     resolve_message_handler,
     resolve_message_list_handler,
     resolve_thread_handler,
@@ -33,17 +33,17 @@ from .types import (
 
 
 def resolve_ask_open_ai(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenAIType:
-    return ask_open_ai_handler(info, **kwargs)
+    return resolve_ask_open_ai_handler(info, **kwargs)
 
 
 def resolve_last_message(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> LastMessageType:
-    return last_message_handler(info, **kwargs)
+    return resolve_last_message_handler(info, **kwargs)
 
 
 def resolve_current_run(info: ResolveInfo, **kwargs: Dict[str, Any]) -> CurrentRunType:
-    return current_run_handler(info, **kwargs)
+    return resolve_current_run_handler(info, **kwargs)
 
 
 def resolve_assistant(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AssistantType:

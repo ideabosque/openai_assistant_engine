@@ -99,7 +99,9 @@ def update_thread_and_insert_message(
 
     insert_update_thread_handler(info, **update_kwargs)
 
-    last_message = last_message_handler(info, thread_id=result.thread_id, role=role)
+    last_message = resolve_last_message_handler(
+        info, thread_id=result.thread_id, role=role
+    )
 
     insert_update_message_handler(
         info,
@@ -237,7 +239,9 @@ def get_messages_for_the_conversation(
 
 
 @assistant_decorator()
-def current_run_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> CurrentRunType:
+def resolve_current_run_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> CurrentRunType:
     try:
         thread_id = kwargs["thread_id"]
         run_id = kwargs["run_id"]
@@ -253,7 +257,7 @@ def current_run_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> CurrentR
         raise e
 
 
-def last_message_handler(
+def resolve_last_message_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> LastMessageType:
     try:
@@ -321,7 +325,9 @@ def get_current_run_id_and_start_async_task(
 
 
 @assistant_decorator()
-def ask_open_ai_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenAIType:
+def resolve_ask_open_ai_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> AskOpenAIType:
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
