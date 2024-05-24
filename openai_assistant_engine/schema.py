@@ -5,39 +5,39 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import time
-from graphene import ObjectType, String, List, Field, Int, DateTime, Boolean
-from silvaengine_utility import JSON
-from graphene import ResolveInfo
-from typing import Dict, Any
+from typing import Any, Dict
+
+from graphene import Field, Int, List, ObjectType, ResolveInfo, String
+
+from .mutations import (
+    DeleteAssistant,
+    DeleteMessage,
+    DeleteThread,
+    InsertUpdateAssistant,
+    InsertUpdateMessage,
+    InsertUpdateThread,
+)
 from .queries import (
     resolve_ask_open_ai,
-    resolve_last_message,
-    resolve_current_run,
     resolve_assistant,
     resolve_assistant_list,
-    resolve_thread,
-    resolve_thread_list,
+    resolve_current_run,
+    resolve_last_message,
     resolve_message,
     resolve_message_list,
-)
-from .mutations import (
-    InsertUpdateAssistant,
-    DeleteAssistant,
-    InsertUpdateThread,
-    DeleteThread,
-    InsertUpdateMessage,
-    DeleteMessage,
+    resolve_thread,
+    resolve_thread_list,
 )
 from .types import (
     AskOpenAIType,
-    LastMessageType,
-    CurrentRunType,
-    AssistantType,
     AssistantListType,
-    ThreadType,
-    ThreadListType,
-    MessageType,
+    AssistantType,
+    CurrentRunType,
+    LastMessageType,
     MessageListType,
+    MessageType,
+    ThreadListType,
+    ThreadType,
 )
 
 

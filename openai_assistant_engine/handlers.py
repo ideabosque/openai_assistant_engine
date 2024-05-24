@@ -4,35 +4,40 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import threading, functools, traceback, logging, time
-from typing import Callable, Optional, List, Dict, Any
+import functools
+import logging
+import threading
+import time
+import traceback
 from datetime import datetime
 from queue import Queue
-from typing_extensions import override
-from openai import OpenAI, AssistantEventHandler
-from silvaengine_utility import Utility
-from silvaengine_dynamodb_base import (
-    monitor_decorator,
-    insert_update_decorator,
-    resolve_list_decorator,
-    delete_decorator,
-)
+from typing import Any, Callable, Dict, List, Optional
 
-from .models import AssistantModel, ThreadModel, MessageModel
+from graphene import ResolveInfo
+from openai import AssistantEventHandler, OpenAI
+from pytz import timezone
+from silvaengine_dynamodb_base import (
+    delete_decorator,
+    insert_update_decorator,
+    monitor_decorator,
+    resolve_list_decorator,
+)
+from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
+from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
     AskOpenAIType,
-    LastMessageType,
-    CurrentRunType,
-    AssistantType,
     AssistantListType,
-    ThreadType,
-    ThreadListType,
-    MessageType,
+    AssistantType,
+    CurrentRunType,
+    LastMessageType,
     MessageListType,
+    MessageType,
+    ThreadListType,
+    ThreadType,
 )
-from tenacity import retry, wait_exponential, stop_after_attempt
-from pytz import timezone
-from graphene import ResolveInfo
 
 client = None
 

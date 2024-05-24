@@ -4,29 +4,31 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+from typing import Any, Dict
+
+from graphene import ResolveInfo
+
 from .handlers import (
     ask_open_ai_handler,
-    last_message_handler,
     current_run_handler,
+    last_message_handler,
     resolve_assistant_handler,
     resolve_assistant_list_handler,
-    resolve_thread_handler,
-    resolve_thread_list_handler,
     resolve_message_handler,
     resolve_message_list_handler,
+    resolve_thread_handler,
+    resolve_thread_list_handler,
 )
-from graphene import ResolveInfo
-from typing import Dict, Any
 from .types import (
     AskOpenAIType,
-    LastMessageType,
-    CurrentRunType,
-    AssistantType,
     AssistantListType,
-    ThreadType,
-    ThreadListType,
-    MessageType,
+    AssistantType,
+    CurrentRunType,
+    LastMessageType,
     MessageListType,
+    MessageType,
+    ThreadListType,
+    ThreadType,
 )
 
 
