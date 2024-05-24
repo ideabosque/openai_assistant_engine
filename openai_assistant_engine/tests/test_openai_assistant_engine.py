@@ -4,9 +4,15 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import logging, sys, unittest, os, json, time
-from dotenv import load_dotenv
+import json
+import logging
+import os
+import sys
+import time
+import unittest
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 load_dotenv()
 setting = {

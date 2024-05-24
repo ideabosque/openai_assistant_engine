@@ -4,15 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from pynamodb.attributes import (
-    ListAttribute,
-    MapAttribute,
-    NumberAttribute,
-    UnicodeAttribute,
-    UTCDateTimeAttribute,
-    BooleanAttribute,
-)
-from pynamodb.indexes import GlobalSecondaryIndex, LocalSecondaryIndex, AllProjection
+from pynamodb.attributes import ListAttribute, UnicodeAttribute, UTCDateTimeAttribute
 from silvaengine_dynamodb_base import BaseModel
 
 

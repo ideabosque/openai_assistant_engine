@@ -5,11 +5,13 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import logging
+from typing import Any, Dict, List
+
 from graphene import Schema
-from .schema import Query, Mutations, type_class
-from .handlers import handlers_init
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
-from typing import Dict, Any, List
+
+from .handlers import handlers_init
+from .schema import Mutations, Query, type_class
 
 
 # Hook function applied to deployment

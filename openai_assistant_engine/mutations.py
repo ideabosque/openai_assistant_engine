@@ -5,27 +5,20 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import traceback
-from graphene import (
-    String,
-    Field,
-    Mutation,
-    Boolean,
-    List,
-    DateTime,
-    Int,
-    Decimal,
-)
+from typing import Any, Dict
+
+from graphene import Boolean, DateTime, Field, List, Mutation, String
 from silvaengine_utility import JSON
-from .types import AssistantType, ThreadType, MessageType
+
 from .handlers import (
-    insert_update_assistant_handler,
     delete_assistant_handler,
-    insert_update_thread_handler,
-    delete_thread_handler,
-    insert_update_message_handler,
     delete_message_handler,
+    delete_thread_handler,
+    insert_update_assistant_handler,
+    insert_update_message_handler,
+    insert_update_thread_handler,
 )
-from typing import Dict, Any
+from .types import AssistantType, MessageType, ThreadType
 
 
 class InsertUpdateAssistant(Mutation):
