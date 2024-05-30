@@ -9,13 +9,12 @@ import logging
 import threading
 import time
 import traceback
-from datetime import datetime
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
+import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
-from pytz import timezone
 from tenacity import retry, stop_after_attempt, wait_exponential
 from typing_extensions import override
 
@@ -224,9 +223,7 @@ def get_messages_for_the_conversation(
                 {
                     "thread_id": m.thread_id,
                     "message_id": m.id,
-                    "created_at": datetime.fromtimestamp(m.created_at).astimezone(
-                        timezone("UTC")
-                    ),
+                    "created_at": pendulum.from_timestamp(m.created_at, tz="UTC"),
                     "role": m.role,
                     "message": m.content[0].text.value,
                     "run_id": m.run_id,
@@ -281,9 +278,9 @@ def resolve_last_message_handler(
             last_message.message_id = messages[0].id
             last_message.run_id = messages[0].run_id
             last_message.message = messages[0].content[0].text.value
-            last_message.created_at = datetime.fromtimestamp(
-                messages[0].created_at
-            ).astimezone(timezone("UTC"))
+            last_message.created_at = pendulum.from_timestamp(
+                messages[0].created_at, tz="UTC"
+            )
         return last_message
     except Exception as e:
         log = traceback.format_exc()
@@ -450,8 +447,8 @@ def insert_update_assistant_handler(
                 "assistant_name": kwargs.get("assistant_name"),
                 "functions": kwargs.get("functions"),
                 "updated_by": kwargs.get("updated_by"),
-                "created_at": datetime.now(tz=timezone("UTC")),
-                "updated_at": datetime.now(tz=timezone("UTC")),
+                "created_at": pendulum.now("UTC"),
+                "updated_at": pendulum.now("UTC"),
             },
         ).save()
         return
@@ -459,7 +456,7 @@ def insert_update_assistant_handler(
     assistant = kwargs.get("entity")
     actions = [
         AssistantModel.updated_by.set(kwargs.get("updated_by")),
-        AssistantModel.updated_at.set(datetime.now(tz=timezone("UTC"))),
+        AssistantModel.updated_at.set(pendulum.now("UTC")),
     ]
     if kwargs.get("assistant_name") is not None:
         actions.append(AssistantModel.assistant_name.set(kwargs.get("assistant_name")))
@@ -568,8 +565,8 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
                 "assistant_type": kwargs["assistant_type"],
                 "run_ids": [kwargs["run_id"]],
                 "updated_by": kwargs["updated_by"],
-                "created_at": datetime.now(tz=timezone("UTC")),
-                "updated_at": datetime.now(tz=timezone("UTC")),
+                "created_at": pendulum.now("UTC"),
+                "updated_at": pendulum.now("UTC"),
             },
         ).save()
         return
@@ -577,7 +574,7 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
     thread = kwargs.get("entity")
     actions = [
         AssistantModel.updated_by.set(kwargs["updated_by"]),
-        AssistantModel.updated_at.set(datetime.now(tz=timezone("UTC"))),
+        AssistantModel.updated_at.set(pendulum.now("UTC")),
     ]
     if kwargs.get("run_id") is not None:
         run_ids = set(thread.run_ids)
