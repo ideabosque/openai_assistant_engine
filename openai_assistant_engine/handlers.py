@@ -16,6 +16,9 @@ from typing import Any, Callable, Dict, List, Optional
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
 from pytz import timezone
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -23,8 +26,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -171,10 +172,10 @@ class EventHandler(AssistantEventHandler):
             assistant_function = get_assistant_function(
                 self.logger, self.assistant_type, data.assistant_id, tool.function.name
             )
-            if assistant_function is None:
-                raise Exception(
-                    f"The function ({tool.function.name}) is not supported!!!"
-                )
+            assert (
+                assistant_function is not None
+            ), f"The function ({tool.function.name}) is not supported!!!"
+
             arguments = Utility.json_loads(tool.function.arguments)
             tool_outputs.append(
                 {
