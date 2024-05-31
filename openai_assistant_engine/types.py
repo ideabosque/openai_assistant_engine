@@ -29,6 +29,7 @@ class CurrentRunType(ObjectType):
     thread_id = String()
     run_id = String()
     status = String()
+    usage = JSON()
 
 
 class AssistantType(ObjectType):
@@ -45,7 +46,7 @@ class ThreadType(ObjectType):
     assistant_id = String()
     thread_id = String()
     assistant_type = String()
-    run_ids = List(String)
+    runs = List(JSON)
     updated_by = String()
     created_at = DateTime()
     updated_at = DateTime()

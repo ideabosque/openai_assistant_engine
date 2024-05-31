@@ -111,7 +111,6 @@ class Query(ObjectType):
         limit=Int(),
         assistant_id=String(),
         assistant_types=List(String),
-        run_id=String(),
     )
 
     message = Field(

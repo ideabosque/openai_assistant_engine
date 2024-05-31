@@ -189,7 +189,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "assistantId": "123456",
             "threadId": "XXXXXX",
             "assistantType": "agent",
-            "runId": "XXXXXX",
+            "run": {"run_id": "yyyyy", "usage": {"a": "x"}},
             "updatedBy": "user abc",
         }
         payload = {

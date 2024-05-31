@@ -4,7 +4,12 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from pynamodb.attributes import ListAttribute, UnicodeAttribute, UTCDateTimeAttribute
+from pynamodb.attributes import (
+    ListAttribute,
+    MapAttribute,
+    UnicodeAttribute,
+    UTCDateTimeAttribute,
+)
 from silvaengine_dynamodb_base import BaseModel
 
 
@@ -28,7 +33,7 @@ class ThreadModel(BaseModel):
     assistant_id = UnicodeAttribute(hash_key=True)
     thread_id = UnicodeAttribute(range_key=True)
     assistant_type = UnicodeAttribute()
-    run_ids = ListAttribute()
+    runs = ListAttribute(of=MapAttribute)
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
