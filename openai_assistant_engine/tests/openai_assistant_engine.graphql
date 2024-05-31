@@ -18,6 +18,7 @@ fragment CurrentRunInfo on CurrentRunType {
     threadId
     runId
     status
+    usage
 }
 
 fragment AssistantInfo on AssistantType {
@@ -43,7 +44,7 @@ fragment ThreadInfo on ThreadType {
     assistantId
     threadId
     assistantType
-    runIds
+    runs
     updatedBy
     createdAt
     updatedBy
@@ -218,14 +219,14 @@ mutation insertUpdateThread(
     $assistantId: String!,
     $threadId: String!,
     $assistantType: String!,
-    $runId: String,
+    $run: JSON,
     $updatedBy: String!
 ) {
     insertUpdateThread(
         assistantId: $assistantId,
         threadId: $threadId,
         assistantType: $assistantType,
-        runId: $runId,
+        run: $run,
         updatedBy: $updatedBy
     ) {
         thread{

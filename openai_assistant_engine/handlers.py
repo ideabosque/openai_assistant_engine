@@ -15,9 +15,6 @@ from typing import Any, Callable, Dict, List, Optional
 import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -25,6 +22,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -91,7 +90,10 @@ def update_thread_and_insert_message(
     update_kwargs = {
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
-        "run_id": getattr(result, "run_id", None) or result.current_run_id,
+        "run": {
+            "run_id": getattr(result, "current_run_id", None) or result.run_id,
+            "usage": getattr(result, "usage", {}),
+        },
         "updated_by": kwargs["updated_by"],
     }
     if kwargs.get("thread_id") is None:
@@ -121,10 +123,10 @@ def assistant_decorator() -> Callable:
             function_name = original_function.__name__
             try:
                 result = original_function(*args, **kwargs)
-                if function_name == "ask_open_ai_handler":
+                if function_name == "resolve_ask_open_ai_handler":
                     update_thread_and_insert_message(args[0], kwargs, result, "user")
                 elif (
-                    function_name == "current_run_handler"
+                    function_name == "resolve_current_run_handler"
                     and result.status == "completed"
                 ):
                     update_thread_and_insert_message(
@@ -247,7 +249,18 @@ def resolve_current_run_handler(
             thread_id=thread_id, run_id=run_id
         )
         return CurrentRunType(
-            thread_id=thread_id, run_id=run_id, status=current_run.status
+            thread_id=thread_id,
+            run_id=run_id,
+            status=current_run.status,
+            usage=(
+                {
+                    "prompt_tokens": current_run.usage.prompt_tokens,
+                    "completion_tokens": current_run.usage.completion_tokens,
+                    "total_tokens": current_run.usage.total_tokens,
+                }
+                if current_run.usage
+                else {}
+            ),
         )
     except Exception as e:
         log = traceback.format_exc()
@@ -524,7 +537,6 @@ def resolve_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Threa
 def resolve_thread_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     assistant_id = kwargs.get("assistant_id")
     assistant_types = kwargs.get("assistant_types")
-    run_id = kwargs.get("run_id")
 
     args = []
     inquiry_funct = ThreadModel.scan
@@ -536,12 +548,29 @@ def resolve_thread_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> 
     the_filters = None
     if assistant_types:
         the_filters &= ThreadModel.assistant_type.is_in(*assistant_types)
-    if run_id:
-        the_filters &= ThreadModel.run_ids.contains(run_id)
     if the_filters is not None:
         args.append(the_filters)
 
     return inquiry_funct, count_funct, args
+
+
+def add_or_update_run_in_list(list_of_run_dicts, new_run):
+    # Flag to check if the new run was added or updated
+    updated = False
+
+    # Iterate over the list to check for existing IDs
+    for i, run in enumerate(list_of_run_dicts):
+        if run["run_id"] == new_run["run_id"]:
+            # Update the existing run with the new run's data
+            list_of_run_dicts[i] = new_run
+            updated = True
+            break
+
+    # If the ID was not found, add the new run to the list
+    if not updated:
+        list_of_run_dicts.append(new_run)
+
+    return list_of_run_dicts
 
 
 @insert_update_decorator(
@@ -563,7 +592,7 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
             thread_id,
             **{
                 "assistant_type": kwargs["assistant_type"],
-                "run_ids": [kwargs["run_id"]],
+                "runs": [kwargs["run"]],
                 "updated_by": kwargs["updated_by"],
                 "created_at": pendulum.now("UTC"),
                 "updated_at": pendulum.now("UTC"),
@@ -576,10 +605,10 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
         AssistantModel.updated_by.set(kwargs["updated_by"]),
         AssistantModel.updated_at.set(pendulum.now("UTC")),
     ]
-    if kwargs.get("run_id") is not None:
-        run_ids = set(thread.run_ids)
-        run_ids.add(kwargs["run_id"])
-        actions.append(ThreadModel.run_ids.set(list(run_ids)))
+    if kwargs.get("run") is not None:
+        actions.append(
+            ThreadModel.runs.set(add_or_update_run_in_list(thread.runs, kwargs["run"]))
+        )
     thread.update(actions=actions)
 
 
