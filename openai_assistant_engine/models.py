@@ -5,6 +5,7 @@ from __future__ import print_function
 __author__ = "bibow"
 
 from pynamodb.attributes import (
+    BooleanAttribute,
     ListAttribute,
     MapAttribute,
     UnicodeAttribute,
@@ -33,6 +34,7 @@ class ThreadModel(BaseModel):
     assistant_id = UnicodeAttribute(hash_key=True)
     thread_id = UnicodeAttribute(range_key=True)
     assistant_type = UnicodeAttribute()
+    is_voice = BooleanAttribute()
     runs = ListAttribute(of=MapAttribute)
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
@@ -48,4 +50,5 @@ class MessageModel(BaseModel):
     run_id = UnicodeAttribute(null=True)
     role = UnicodeAttribute()
     message = UnicodeAttribute()
+    base64_audio = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()

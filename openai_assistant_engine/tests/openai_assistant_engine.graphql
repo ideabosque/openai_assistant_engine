@@ -5,7 +5,7 @@ fragment AskOpenAIInfo on AskOpenAIType {
     currentRunId
 }
 
-fragment LastMessageInfo on LastMessageType {
+fragment LiveMessageInfo on LiveMessageType {
     threadId
     runId
     messageId
@@ -44,6 +44,7 @@ fragment ThreadInfo on ThreadType {
     assistantId
     threadId
     assistantType
+    isVoice
     runs
     updatedBy
     createdAt
@@ -65,6 +66,7 @@ fragment MessageInfo on MessageType {
     messageId
     role
     message
+    base64Audio
     createdAt
 }
 
@@ -107,7 +109,21 @@ query getLastMessage(
         threadId: $threadId,
         role: $role
     ){
-        ...LastMessageInfo
+        ...LiveMessageInfo
+    }
+}
+
+query getLiveMessages(
+    $threadId: String!,
+    $roles: [String],
+    $order: String
+) {
+    liveMessages(
+        threadId: $threadId,
+        roles: $roles,
+        order: $order
+    ){
+        ...LiveMessageInfo
     }
 }
 

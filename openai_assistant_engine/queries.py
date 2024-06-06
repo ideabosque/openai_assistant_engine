@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from graphene import ResolveInfo
 
@@ -14,6 +14,7 @@ from .handlers import (
     resolve_assistant_list_handler,
     resolve_current_run_handler,
     resolve_last_message_handler,
+    resolve_live_messages_handler,
     resolve_message_handler,
     resolve_message_list_handler,
     resolve_thread_handler,
@@ -24,7 +25,7 @@ from .types import (
     AssistantListType,
     AssistantType,
     CurrentRunType,
-    LastMessageType,
+    LiveMessageType,
     MessageListType,
     MessageType,
     ThreadListType,
@@ -36,9 +37,21 @@ def resolve_ask_open_ai(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AskOpenA
     return resolve_ask_open_ai_handler(info, **kwargs)
 
 
+def resolve_live_messages(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> List[LiveMessageType]:
+    return resolve_live_messages_handler(info, **kwargs)
+
+
 def resolve_last_message(
     info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> LastMessageType:
+) -> LiveMessageType:
+    return resolve_last_message_handler(info, **kwargs)
+
+
+def resolve_last_message(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> LiveMessageType:
     return resolve_last_message_handler(info, **kwargs)
 
 

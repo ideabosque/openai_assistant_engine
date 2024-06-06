@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from graphene import DateTime, List, ObjectType, String
+from graphene import Boolean, DateTime, List, ObjectType, String
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -16,7 +16,7 @@ class AskOpenAIType(ObjectType):
     current_run_id = String()
 
 
-class LastMessageType(ObjectType):
+class LiveMessageType(ObjectType):
     thread_id = String()
     run_id = String()
     message_id = String()
@@ -46,6 +46,7 @@ class ThreadType(ObjectType):
     assistant_id = String()
     thread_id = String()
     assistant_type = String()
+    is_voice = Boolean()
     runs = List(JSON)
     updated_by = String()
     created_at = DateTime()
@@ -58,6 +59,7 @@ class MessageType(ObjectType):
     message_id = String()
     role = String()
     message = String()
+    base64_audio = String()
     created_at = DateTime()
 
 

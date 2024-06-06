@@ -6,6 +6,7 @@ __author__ = "bibow"
 
 import time
 from typing import Any, Dict
+from typing import List as Typing_List
 
 from graphene import Field, Int, List, ObjectType, ResolveInfo, String
 
@@ -23,6 +24,7 @@ from .queries import (
     resolve_assistant_list,
     resolve_current_run,
     resolve_last_message,
+    resolve_live_messages,
     resolve_message,
     resolve_message_list,
     resolve_thread,
@@ -33,7 +35,7 @@ from .types import (
     AssistantListType,
     AssistantType,
     CurrentRunType,
-    LastMessageType,
+    LiveMessageType,
     MessageListType,
     MessageType,
     ThreadListType,
@@ -44,7 +46,7 @@ from .types import (
 def type_class():
     return [
         AskOpenAIType,
-        LastMessageType,
+        LiveMessageType,
         CurrentRunType,
         AssistantType,
         AssistantListType,
@@ -67,8 +69,16 @@ class Query(ObjectType):
         thread_id=String(),
     )
 
+    live_messages = List(
+        LiveMessageType,
+        required=True,
+        thread_id=String(required=True),
+        roles=List(String, required=False),
+        order=String(required=False),
+    )
+
     last_message = Field(
-        LastMessageType,
+        LiveMessageType,
         required=True,
         thread_id=String(required=True),
         role=String(required=True),
@@ -137,9 +147,14 @@ class Query(ObjectType):
     ) -> AskOpenAIType:
         return resolve_ask_open_ai(info, **kwargs)
 
+    def resolve_live_messages(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> Typing_List[LiveMessageType]:
+        return resolve_live_messages(info, **kwargs)
+
     def resolve_last_message(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> LastMessageType:
+    ) -> LiveMessageType:
         return resolve_last_message(info, **kwargs)
 
     def resolve_current_run(
