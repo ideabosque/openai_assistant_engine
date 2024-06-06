@@ -15,9 +15,6 @@ from typing import Any, Callable, Dict, List, Optional
 import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -25,6 +22,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -32,7 +31,7 @@ from .types import (
     AssistantListType,
     AssistantType,
     CurrentRunType,
-    LastMessageType,
+    LiveMessageType,
     MessageListType,
     MessageType,
     ThreadListType,
@@ -91,6 +90,7 @@ def update_thread_and_insert_message(
     update_kwargs = {
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
+        "is_voice": kwargs.get("is_voice", False),
         "run": {
             "run_id": getattr(result, "current_run_id", None) or result.run_id,
             "usage": getattr(result, "usage", {}),
@@ -113,6 +113,7 @@ def update_thread_and_insert_message(
         message_id=last_message.message_id,
         role=last_message.role,
         message=last_message.message,
+        base64_audio=kwargs.get("user_query") if update_kwargs["is_voice"] else None,
         created_at=last_message.created_at,
     )
 
@@ -208,34 +209,34 @@ class EventHandler(AssistantEventHandler):
                 stream.until_done()
 
 
-def get_messages_for_the_conversation(
-    logger: logging.Logger,
-    thread_id: str,
-    roles: List[str] = ["user", "assistant"],
-    order: str = "asc",
-) -> List[Dict[str, Any]]:
+def resolve_live_messages_handler(
+    info: ResolveInfo,
+    **kwargs: Dict[str, Any],
+) -> List[MessageType]:
     try:
+        thread_id = kwargs["thread_id"]
+        roles = kwargs.get("roles", ["user", "assistant"])
+        order = kwargs.get("order", "asc")
         messages = client.beta.threads.messages.list(thread_id=thread_id, order=order)
-        logger.info("# Messages")
-        messages_list = []
+        live_messages = []
         for m in messages:
             if m.role not in roles:
                 continue
-            logger.info(f"{m.role}: {m.content[0].text.value}")
-            messages_list.append(
-                {
-                    "thread_id": m.thread_id,
-                    "message_id": m.id,
-                    "created_at": pendulum.from_timestamp(m.created_at, tz="UTC"),
-                    "role": m.role,
-                    "message": m.content[0].text.value,
-                    "run_id": m.run_id,
-                }
+
+            live_messages.append(
+                LiveMessageType(
+                    thread_id=m.thread_id,
+                    message_id=m.id,
+                    created_at=pendulum.from_timestamp(m.created_at, tz="UTC"),
+                    role=m.role,
+                    message=m.content[0].text.value,
+                    run_id=m.run_id,
+                )
             )
-        return messages_list
+        return live_messages
     except Exception as e:
         log = traceback.format_exc()
-        logger.error(log)
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -271,11 +272,11 @@ def resolve_current_run_handler(
 
 def resolve_last_message_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> LastMessageType:
+) -> LiveMessageType:
     try:
         thread_id = kwargs["thread_id"]
         role = kwargs["role"]
-        last_message = LastMessageType(
+        last_message = LiveMessageType(
             thread_id=thread_id,
             message_id=None,
             role=role,
@@ -593,6 +594,7 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
             thread_id,
             **{
                 "assistant_type": kwargs["assistant_type"],
+                "is_voice": kwargs.get("is_voice", False),
                 "runs": [kwargs["run"]],
                 "updated_by": kwargs["updated_by"],
                 "created_at": pendulum.now("UTC"),
@@ -711,6 +713,7 @@ def insert_update_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
                 "run_id": kwargs.get("run_id"),
                 "role": kwargs["role"],
                 "message": kwargs["message"],
+                "base64_audio": kwargs.get("base64_audio"),
                 "created_at": kwargs["created_at"],
             },
         ).save()
@@ -724,6 +727,8 @@ def insert_update_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
         actions.append(MessageModel.role.set(kwargs["role"]))
     if kwargs.get("message") is not None:
         actions.append(MessageModel.message.set(kwargs["message"]))
+    if kwargs.get("base64_audio") is not None:
+        actions.append(MessageModel.base64_audio.set(kwargs["base64_audio"]))
     if kwargs.get("created_at") is not None:
         actions.append(MessageModel.created_at.set(kwargs["created_at"]))
     message.update(actions=actions)
