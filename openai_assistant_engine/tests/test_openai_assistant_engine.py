@@ -4,15 +4,22 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+import base64
 import json
 import logging
 import os
 import sys
+import threading
 import time
 import unittest
+import wave
+from io import BytesIO
 from pathlib import Path
 
+import keyboard
+import pyaudio
 from dotenv import load_dotenv
+from pydub import AudioSegment
 
 load_dotenv()
 setting = {
@@ -35,6 +42,43 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
 
 from openai_assistant_engine import OpenaiAssistantEngine
+from openai_assistant_engine.handlers import (
+    encode_audio_to_base64,
+    is_base64_encoded,
+    text_to_base64_speech,
+)
+
+
+def record_audio(frames, stream, chunk):
+    print("Recording... Press Space to stop.")
+    while recording:
+        data = stream.read(chunk)
+        frames.append(data)
+    print("Finished recording.")
+
+
+def play_base64_audio(encoded_audio):
+    audio_data = base64.b64decode(encoded_audio)
+    audio_buffer = BytesIO(audio_data)
+    audio_buffer.seek(0)
+
+    # Ensure the audio is recognized as an MP3 file
+    audio = AudioSegment.from_file(audio_buffer)
+
+    playback = pyaudio.PyAudio()
+    stream = playback.open(
+        format=playback.get_format_from_width(audio.sample_width),
+        channels=audio.channels,
+        rate=audio.frame_rate,
+        output=True,
+    )
+
+    data = audio.raw_data
+    stream.write(data)
+
+    stream.stop_stream()
+    stream.close()
+    playback.terminate()
 
 
 class OpenaiAssistantEngineTest(unittest.TestCase):
@@ -123,6 +167,134 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             )
 
     # @unittest.skip("demonstrating skipping")
+    def test_conversation_search_by_voice(self):
+        global recording
+        recording = False
+        format = pyaudio.paInt16
+        channels = 1
+        rate = 44100
+        chunk = 1024
+        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        thread_id = None
+
+        def start_recording():
+            global recording
+            if not recording:
+                recording = True
+                recording_thread = threading.Thread(
+                    target=record_audio, args=(frames, stream, chunk)
+                )
+                recording_thread.start()
+
+        def stop_recording():
+            global recording
+            if recording:
+                recording = False
+
+        logger.info("Start test_conversation_search_by_voice ...")
+        initial_greeting = "Hello! I am an AI assistant. How can I help you today?"
+        print(initial_greeting)
+        response_encoded_audio = text_to_base64_speech(initial_greeting)
+        play_base64_audio(response_encoded_audio)
+
+        while True:
+            audio = pyaudio.PyAudio()
+            stream = audio.open(
+                format=format,
+                channels=channels,
+                rate=rate,
+                input=True,
+                frames_per_buffer=chunk,
+            )
+
+            frames = []
+
+            print("Press Enter to start recording.")
+            keyboard.wait("enter")
+            start_recording()
+
+            print("Press Space to stop recording.")
+            keyboard.wait("space")
+            stop_recording()
+
+            stream.stop_stream()
+            stream.close()
+            audio.terminate()
+
+            audio_buffer = BytesIO()
+            wf = wave.open(audio_buffer, "wb")
+            wf.setnchannels(channels)
+            wf.setsampwidth(audio.get_sample_size(format))
+            wf.setframerate(rate)
+            wf.writeframes(b"".join(frames))
+            wf.close()
+            audio_buffer.seek(0)
+
+            encoded_audio = encode_audio_to_base64(audio_buffer)
+            if not is_base64_encoded(encoded_audio):
+                raise Exception("Base64 Encoded Audio is not valid.")
+            print("Base64 Encoded Audio:")
+            print(encoded_audio)
+
+            payload = {
+                "query": document,
+                "variables": {
+                    "userQuery": encoded_audio,
+                    "assistantId": assistant_id,
+                    "assistantType": "conversation",
+                    "threadId": thread_id,
+                    "updatedBy": "Use XYZ",
+                },
+                "operation_name": "askOpenAi",
+            }
+            response = json.loads(
+                self.openai_assistant_engine.open_assistant_graphql(**payload)
+            )
+            logger.info(response)
+            thread_id = response["data"]["askOpenAi"]["threadId"]
+            current_run_id = response["data"]["askOpenAi"]["currentRunId"]
+
+            while True:
+                payload = {
+                    "query": document,
+                    "variables": {
+                        "assistantId": assistant_id,
+                        "threadId": thread_id,
+                        "runId": current_run_id,
+                        "updatedBy": "Use XYZ",
+                    },
+                    "operation_name": "getCurrentRun",
+                }
+                response = json.loads(
+                    self.openai_assistant_engine.open_assistant_graphql(**payload)
+                )
+                # logger.info(response)
+                if response["data"]["currentRun"]["status"] == "completed":
+                    break
+
+                time.sleep(5)
+
+            payload = {
+                "query": document,
+                "variables": {
+                    "assistantId": assistant_id,
+                    "threadId": thread_id,
+                    "role": "assistant",
+                },
+                "operation_name": "getLastMessage",
+            }
+            response = json.loads(
+                self.openai_assistant_engine.open_assistant_graphql(**payload)
+            )
+            # logger.info(response)
+            last_message = response["data"]["lastMessage"]["message"]
+            play_base64_audio(last_message)
+
+            print("Press 'q' to quit or any other key to continue.")
+            if keyboard.read_event().name == "q":
+                break
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_live_messages(self):
         variables = {
             "threadId": "thread_3vIC9xKok5xNaPe0O4uHawef",

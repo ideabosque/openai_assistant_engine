@@ -59,7 +59,6 @@ class MessageType(ObjectType):
     message_id = String()
     role = String()
     message = String()
-    base64_audio = String()
     created_at = DateTime()
 
 

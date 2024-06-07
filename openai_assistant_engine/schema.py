@@ -80,6 +80,7 @@ class Query(ObjectType):
     last_message = Field(
         LiveMessageType,
         required=True,
+        assistant_id=String(required=False),
         thread_id=String(required=True),
         role=String(required=True),
     )

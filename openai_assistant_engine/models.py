@@ -50,5 +50,4 @@ class MessageModel(BaseModel):
     run_id = UnicodeAttribute(null=True)
     role = UnicodeAttribute()
     message = UnicodeAttribute()
-    base64_audio = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
