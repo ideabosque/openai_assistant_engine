@@ -66,7 +66,6 @@ fragment MessageInfo on MessageType {
     messageId
     role
     message
-    base64Audio
     createdAt
 }
 
@@ -102,10 +101,12 @@ query askOpenAi(
 }
 
 query getLastMessage(
+    $assistantId: String,
     $threadId: String!,
     $role: String!
 ) {
     lastMessage(
+        assistantId: $assistantId,
         threadId: $threadId,
         role: $role
     ){
