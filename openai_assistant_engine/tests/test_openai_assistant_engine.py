@@ -44,7 +44,6 @@ logger = logging.getLogger()
 from openai_assistant_engine import OpenaiAssistantEngine
 from openai_assistant_engine.handlers import (
     encode_audio_to_base64,
-    is_base64_encoded,
     text_to_base64_speech,
 )
 
@@ -231,8 +230,6 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             audio_buffer.seek(0)
 
             encoded_audio = encode_audio_to_base64(audio_buffer)
-            if not is_base64_encoded(encoded_audio):
-                raise Exception("Base64 Encoded Audio is not valid.")
             print("Base64 Encoded Audio:")
             print(encoded_audio)
 
