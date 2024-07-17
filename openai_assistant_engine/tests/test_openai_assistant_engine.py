@@ -13,13 +13,15 @@ import threading
 import time
 import unittest
 import wave
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import keyboard
+import paramiko
 import pyaudio
 from dotenv import load_dotenv
 from pydub import AudioSegment
+from sshtunnel import SSHTunnelForwarder
 
 load_dotenv()
 setting = {
@@ -27,6 +29,14 @@ setting = {
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
+    "SSHSERVER": os.getenv("SSHSERVER"),
+    "SSHSERVERPORT": int(os.getenv("SSHSERVERPORT")),
+    "SSHUSERNAME": os.getenv("SSHUSERNAME"),
+    "REMOTEBINDSERVER": os.getenv("REMOTEBINDSERVER"),
+    "REMOTEBINDSERVERPORT": int(os.getenv("REMOTEBINDSERVERPORT")),
+    "LOCALBINDSERVER": os.getenv("LOCALBINDSERVER"),
+    "LOCALBINDSERVERPORT": int(os.getenv("LOCALBINDSERVERPORT")),
+    "SSHPKEY": os.getenv("SSHPKEY"),
 }
 
 document = Path(
@@ -98,7 +108,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -165,7 +175,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 last_message,
             )
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search_by_voice(self):
         global recording
         recording = False
@@ -491,4 +501,25 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    try:
+        with SSHTunnelForwarder(
+            (setting["SSHSERVER"], setting["SSHSERVERPORT"]),
+            ssh_username=setting["SSHUSERNAME"],
+            ssh_pkey=paramiko.RSAKey.from_private_key(
+                StringIO(setting.get("SSHPKEY", None))
+            ),
+            ssh_password=setting.get("SSHPASSWORD", None),
+            remote_bind_address=(
+                setting["REMOTEBINDSERVER"],
+                setting["REMOTEBINDSERVERPORT"],
+            ),
+            local_bind_address=(
+                setting["LOCALBINDSERVER"],
+                setting["LOCALBINDSERVERPORT"],
+            ),
+        ) as server:
+            unittest.main()
+    except Exception as e:
+        log = "Failed to connect ssh server with error: %s" % str(e)
+        logger.error(log)
+        raise e
