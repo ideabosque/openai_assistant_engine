@@ -18,9 +18,6 @@ import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
 from pydub import AudioSegment
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -28,6 +25,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -517,7 +516,6 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
     model_funct=get_assistant,
     count_funct=get_assistant_count,
     type_funct=get_assistant_type,
-    range_key_required=True,
 )
 def insert_update_assistant_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
@@ -650,7 +648,6 @@ def add_or_update_run_in_list(list_of_run_dicts, new_run):
     model_funct=get_thread,
     count_funct=get_thread_count,
     type_funct=get_thread_type,
-    range_key_required=True,
 )
 def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
     assistant_id = kwargs["assistant_id"]
@@ -757,7 +754,6 @@ def resolve_message_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
     model_funct=get_message,
     count_funct=get_message_count,
     type_funct=get_message_type,
-    range_key_required=True,
 )
 def insert_update_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
     thread_id = kwargs["thread_id"]
