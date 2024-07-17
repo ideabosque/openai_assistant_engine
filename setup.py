@@ -15,7 +15,12 @@ setup(
     include_package_data=True,
     zip_safe=False,
     platforms="Linux",
-    install_requires=[],
+    install_requires=[
+        "SilvaEngine-Utility",
+        "SilvaEngine-DynamoDB-Base",
+        "graphene",
+        "openai",
+    ],
     classifiers=[
         "Programming Language :: Python",
         "Environment :: Web Environment",
