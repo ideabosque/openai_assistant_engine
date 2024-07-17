@@ -458,9 +458,6 @@ def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
         "functions": assistant.functions,
-        "updated_by": assistant.updated_by,
-        "created_at": assistant.created_at,
-        "updated_at": assistant.updated_at,
     }
 
 
@@ -572,25 +569,21 @@ def get_thread(assistant_id: str, thread_id: str) -> ThreadModel:
     return ThreadModel.get(assistant_id, thread_id)
 
 
-def _get_thread(assistant_id: str, thread_id: str) -> Dict[str, Any]:
-    thread = get_thread(assistant_id, thread_id)
-    return {
-        "assistant_id": thread.assistant_id,
-        "thread_id": thread.thread_id,
-        "assistant_type": thread.assistant_type,
-        "run_ids": thread.run_ids,
-        "updated_by": thread.updated_by,
-        "created_at": thread.created_at,
-        "updated_at": thread.updated_at,
-    }
-
-
 def get_thread_count(assistant_id: str, thread_id: str) -> int:
     return ThreadModel.count(assistant_id, ThreadModel.thread_id == thread_id)
 
 
 def get_thread_type(info: ResolveInfo, thread: ThreadModel) -> ThreadType:
+    try:
+        assistant = _get_assistant(thread.assistant_type, thread.assistant_id)
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").exception(log)
+        raise e
     thread = thread.__dict__["attribute_values"]
+    thread["assistant"] = assistant
+    thread.pop("assistant_type")
+    thread.pop("assistant_id")
     return ThreadType(**Utility.json_loads(Utility.json_dumps(thread)))
 
 
@@ -705,17 +698,6 @@ def delete_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
 )
 def get_message(thread_id: str, message_id: str) -> MessageModel:
     return MessageModel.get(thread_id, message_id)
-
-
-def _get_message(thread_id: str, message_id: str) -> Dict[str, Any]:
-    message = get_message(thread_id, message_id)
-    return {
-        "thread_id": message.thread_id,
-        "message_id": message.message_id,
-        "role": message.role,
-        "message": message.message,
-        "created_at": message.created_at,
-    }
 
 
 def get_message_count(thread_id: str, message_id: str) -> int:
