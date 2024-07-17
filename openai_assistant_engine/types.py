@@ -5,6 +5,7 @@ from __future__ import print_function
 __author__ = "bibow"
 
 from graphene import Boolean, DateTime, List, ObjectType, String
+
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -43,9 +44,8 @@ class AssistantType(ObjectType):
 
 
 class ThreadType(ObjectType):
-    assistant_id = String()
+    assistant = JSON()
     thread_id = String()
-    assistant_type = String()
     is_voice = Boolean()
     runs = List(JSON)
     updated_by = String()

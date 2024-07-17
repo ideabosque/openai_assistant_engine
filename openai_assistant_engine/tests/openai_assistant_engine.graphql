@@ -41,9 +41,8 @@ fragment AssistantListInfo on AssistantListType {
 }
 
 fragment ThreadInfo on ThreadType {
-    assistantId
+    assistant
     threadId
-    assistantType
     isVoice
     runs
     updatedBy
