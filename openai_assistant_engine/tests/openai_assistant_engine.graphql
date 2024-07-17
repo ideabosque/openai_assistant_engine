@@ -158,8 +158,8 @@ query getAssistant(
 query getAssistantList(
     $pageNumber: Int, 
     $limit: Int,
-    $assistantType: String!,
-    $assistantName: String!
+    $assistantType: String,
+    $assistantName: String
 ) {
     assistantList(
         pageNumber: $pageNumber,
