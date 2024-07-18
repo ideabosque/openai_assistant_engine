@@ -29,23 +29,15 @@ setting = {
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
-    "SSHSERVER": os.getenv("SSHSERVER"),
-    "SSHSERVERPORT": int(os.getenv("SSHSERVERPORT")),
-    "SSHUSERNAME": os.getenv("SSHUSERNAME"),
-    "REMOTEBINDSERVER": os.getenv("REMOTEBINDSERVER"),
-    "REMOTEBINDSERVERPORT": int(os.getenv("REMOTEBINDSERVERPORT")),
-    "LOCALBINDSERVER": os.getenv("LOCALBINDSERVER"),
-    "LOCALBINDSERVERPORT": int(os.getenv("LOCALBINDSERVERPORT")),
-    "SSHPKEY": os.getenv("SSHPKEY"),
 }
 
 document = Path(
     os.path.join(os.path.dirname(__file__), "openai_assistant_engine.graphql")
 ).read_text()
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
-sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/redis_stack_connector")
+sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_example")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
-# sys.path.insert(1, "/var/www/projects/redis_stack_connector")
+# sys.path.insert(1, "/var/www/projects/openai_funct_example")
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -108,7 +100,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -406,7 +398,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_thread(self):
         variables = {
             "assistantId": "asst_jUzZKojROaz6HACC1uzaqR5x",
@@ -501,25 +493,4 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    try:
-        with SSHTunnelForwarder(
-            (setting["SSHSERVER"], setting["SSHSERVERPORT"]),
-            ssh_username=setting["SSHUSERNAME"],
-            ssh_pkey=paramiko.RSAKey.from_private_key(
-                StringIO(setting.get("SSHPKEY", None))
-            ),
-            ssh_password=setting.get("SSHPASSWORD", None),
-            remote_bind_address=(
-                setting["REMOTEBINDSERVER"],
-                setting["REMOTEBINDSERVERPORT"],
-            ),
-            local_bind_address=(
-                setting["LOCALBINDSERVER"],
-                setting["LOCALBINDSERVERPORT"],
-            ),
-        ) as server:
-            unittest.main()
-    except Exception as e:
-        log = "Failed to connect ssh server with error: %s" % str(e)
-        logger.error(log)
-        raise e
+    unittest.main()
