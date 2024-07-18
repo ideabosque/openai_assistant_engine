@@ -67,3 +67,34 @@ embedding_model=EMBEDDING_MODEL
 Replace the placeholders (`YOUR_AWS_REGION`, `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `OPENAI_API_KEY`, and `EMBEDDING_MODEL`) with your actual AWS region, AWS Access Key ID, AWS Secret Access Key, OpenAI API Key, and Embedding Model.
 
 ## Usage
+
+This JSON structure is used to define and configure an assistant, specifying its type, unique identifier, name, and the functions it can perform.
+
+```plaintext
+{
+    "assistant_type": <ASSISTANT_TYPE>,
+    "assistant_id": <ASSISTANT_ID>,
+    "assistant_name": <ASSISTANT_NAME>,
+    "functions": [
+        {
+            "module_name": <MODULE_NAME>,
+            "class_name": <CLASS_NAME>,
+            "function_name": <FUNCTION_NAME>,
+            "configuration": {
+                ...<CONFIGURATION>
+            }
+        },
+        ...
+    ]
+}
+```
+
+### Parameters:
+- `assistant_type`: Specifies the type of assistant, such as chat, voice, or hybrid.
+- `assistant_id`: A unique identifier for the assistant, ensuring it can be distinctly recognized within a system.
+- `assistant_name`: The name assigned to the assistant, which can be used for display or reference purposes.
+- `functions`: A list of functions the assistant can perform. Each function is described with:
+  - `module_name`: The name of the module where the function resides.
+  - `class_name`: The name of the class containing the function.
+  - `function_name`: The specific function to be utilized.
+  - `configuration`: Configuration details for the function, which can include various settings and parameters required for its operation.
