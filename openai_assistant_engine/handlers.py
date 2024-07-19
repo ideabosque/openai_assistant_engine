@@ -4,20 +4,17 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import base64
 import functools
 import logging
 import threading
 import time
 import traceback
-from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
 import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
-from pydub import AudioSegment
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -42,20 +39,14 @@ from .types import (
 )
 
 client = None
-whisper_model = None
-tts_model = None
-assistant_voice = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, whisper_model, tts_model, assistant_voice
+    global client
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
-        whisper_model = setting.get("whisper_model", "whisper-1")
-        tts_model = setting.get("tts_model", "tts-1")
-        assistant_voice = setting.get("assistant_voice", "alloy")
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
@@ -93,19 +84,6 @@ def get_assistant_function(
         raise e
 
 
-def is_base64_encoded(s):
-    try:
-        # Try to decode the string using base64
-        decoded_bytes = base64.b64decode(s, validate=True)
-        # Try to encode the bytes back to base64 and compare with the original string
-        if base64.b64encode(decoded_bytes).decode("utf-8") == s:
-            return True
-        else:
-            return False
-    except Exception:
-        return False
-
-
 def update_thread_and_insert_message(
     info: ResolveInfo, kwargs: Dict[str, Any], result: Any, role: str
 ) -> None:
@@ -118,8 +96,6 @@ def update_thread_and_insert_message(
         },
         "updated_by": kwargs["updated_by"],
     }
-    if kwargs.get("user_query"):
-        update_kwargs["is_voice"] = is_base64_encoded(kwargs["user_query"])
     if kwargs.get("thread_id") is None:
         update_kwargs["assistant_type"] = kwargs["assistant_type"]
 
@@ -292,29 +268,6 @@ def resolve_current_run_handler(
         raise e
 
 
-# Convert to base64
-def encode_audio_to_base64(audio_buffer):
-    encoded_audio = base64.b64encode(audio_buffer.read()).decode("utf-8")
-    return encoded_audio
-
-
-def text_to_base64_speech(text):
-    # Create the speech response with streaming
-    response = client.audio.speech.create(
-        model=tts_model, voice=assistant_voice, input=text
-    )
-
-    # Stream the response content into BytesIO
-    audio_buffer = BytesIO()
-    for chunk in response.iter_bytes():
-        audio_buffer.write(chunk)
-
-    # Reset the buffer position to the beginning
-    audio_buffer.seek(0)
-
-    return encode_audio_to_base64(audio_buffer)
-
-
 def resolve_last_message_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> LiveMessageType:
@@ -341,10 +294,6 @@ def resolve_last_message_handler(
             last_message.created_at = pendulum.from_timestamp(
                 messages[0].created_at, tz="UTC"
             )
-            if kwargs.get("assistant_id") and role == "assistant":
-                thread = get_thread(kwargs["assistant_id"], kwargs["thread_id"])
-                if thread.is_voice:
-                    last_message.message = text_to_base64_speech(last_message.message)
         return last_message
     except Exception as e:
         log = traceback.format_exc()
@@ -386,26 +335,6 @@ def get_current_run_id_and_start_async_task(
         raise e
 
 
-def convert_base64_audio_to_text(encoded_audio):
-    audio_data = base64.b64decode(encoded_audio)
-    audio_buffer = BytesIO(audio_data)
-    audio_buffer.seek(0)
-
-    # Ensure the audio is recognized as an MP3 file
-    audio = AudioSegment.from_file(audio_buffer)
-    mp3_buffer = BytesIO()
-    audio.export(mp3_buffer, format="mp3")
-    mp3_buffer.seek(0)
-
-    # Send the BytesIO object directly to the transcription API
-    mp3_buffer.name = "audio.mp3"  # Assign a name attribute to mimic a file
-    transcript = client.audio.transcriptions.create(
-        model=whisper_model, file=mp3_buffer
-    )
-
-    return transcript.text
-
-
 @assistant_decorator()
 def resolve_ask_open_ai_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
@@ -414,8 +343,6 @@ def resolve_ask_open_ai_handler(
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
         user_query = kwargs["user_query"]
-        if is_base64_encoded(kwargs["user_query"]):
-            user_query = convert_base64_audio_to_text(user_query)
         thread_id = kwargs.get("thread_id")
         if thread_id is None:
             thread = client.beta.threads.create()
@@ -658,7 +585,6 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
             thread_id,
             **{
                 "assistant_type": kwargs["assistant_type"],
-                "is_voice": kwargs.get("is_voice", False),
                 "runs": [kwargs["run"]],
                 "updated_by": kwargs["updated_by"],
                 "created_at": pendulum.now("UTC"),

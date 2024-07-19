@@ -43,7 +43,6 @@ fragment AssistantListInfo on AssistantListType {
 fragment ThreadInfo on ThreadType {
     assistant
     threadId
-    isVoice
     runs
     updatedBy
     createdAt

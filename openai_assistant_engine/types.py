@@ -46,7 +46,6 @@ class AssistantType(ObjectType):
 class ThreadType(ObjectType):
     assistant = JSON()
     thread_id = String()
-    is_voice = Boolean()
     runs = List(JSON)
     updated_by = String()
     created_at = DateTime()
