@@ -66,11 +66,11 @@ embedding_model=EMBEDDING_MODEL
 
 Replace the placeholders (`YOUR_AWS_REGION`, `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `OPENAI_API_KEY`, and `EMBEDDING_MODEL`) with your actual AWS region, AWS Access Key ID, AWS Secret Access Key, OpenAI API Key, and Embedding Model.
 
-## Usage
+### Assistant Configuration Setup
 
-This JSON structure is used to define and configure an assistant, specifying its type, unique identifier, name, and the functions it can perform.
+The following JSON structure is utilized to define and configure an assistant within the **`oae-assistants`** table. This structure specifies the assistant's type, unique identifier, name, and the various functions it can perform.
 
-```plaintext
+```json
 {
     "assistant_type": <ASSISTANT_TYPE>,
     "assistant_id": <ASSISTANT_ID>,
@@ -83,18 +83,376 @@ This JSON structure is used to define and configure an assistant, specifying its
             "configuration": {
                 ...<CONFIGURATION>
             }
-        },
-        ...
+        }
     ]
 }
 ```
 
-### Parameters:
-- `assistant_type`: Specifies the type of assistant, such as chat, voice, or hybrid.
-- `assistant_id`: A unique identifier for the assistant, ensuring it can be distinctly recognized within a system.
-- `assistant_name`: The name assigned to the assistant, which can be used for display or reference purposes.
-- `functions`: A list of functions the assistant can perform. Each function is described with:
-  - `module_name`: The name of the module where the function resides.
-  - `class_name`: The name of the class containing the function.
-  - `function_name`: The specific function to be utilized.
-  - `configuration`: Configuration details for the function, which can include various settings and parameters required for its operation.
+- `assistant_type`: Defines the category of the assistant, such as a conversational agent or a task-specific agent.
+- `assistant_id`: A unique identifier assigned to the assistant by OpenAI, ensuring its distinct recognition within the system.
+- `assistant_name`: The designated name for the assistant, used for display and reference purposes.
+- `functions`: An array of functions that the assistant can perform. Each function is detailed as follows:
+  - `module_name`: The name of the module containing the function.
+  - `class_name`: The name of the class where the function is defined.
+  - `function_name`: The specific function to be executed.
+  - `configuration`: Configuration details for the function, which include various settings and parameters necessary for its operation.
+
+## Usage
+
+Utilizing the OpenAI Assistant Engine is straightforward. Below, you'll find examples that illustrate how to construct GraphQL queries and mutations for seamless interaction with OpenAI Assistant.
+
+### Loading the GraphQL Schema
+
+Begin by loading the GraphQL schema into a document parameter. This schema defines the structure of your queries and mutations.
+
+```graphql
+fragment AskOpenAIInfo on AskOpenAIType {
+    assistantId
+    threadId
+    userQuery
+    currentRunId
+}
+
+fragment LiveMessageInfo on LiveMessageType {
+    threadId
+    runId
+    messageId
+    role
+    message
+    createdAt
+}
+
+fragment CurrentRunInfo on CurrentRunType {
+    threadId
+    runId
+    status
+    usage
+}
+
+fragment AssistantInfo on AssistantType {
+    assistantType
+    assistantId
+    assistantName
+    functions
+    updatedBy
+    createdAt
+    updatedAt
+}
+
+fragment AssistantListInfo on AssistantListType {
+    assistantList{
+        ...AssistantInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+fragment ThreadInfo on ThreadType {
+    assistant
+    threadId
+    isVoice
+    runs
+    updatedBy
+    createdAt
+    updatedBy
+}
+
+fragment ThreadListInfo on ThreadListType {
+    threadList{
+        ...ThreadInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+fragment MessageInfo on MessageType {
+    threadId
+    runId
+    messageId
+    role
+    message
+    createdAt
+}
+
+fragment MessageListInfo on MessageListType {
+    messageList{
+        ...MessageInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+query ping {
+    ping
+}
+
+query askOpenAi(
+    $assistantType: String!,
+    $assistantId: String!,
+    $userQuery: String!,
+    $updatedBy: String!,
+    $threadId: String
+) {
+    askOpenAi(
+        assistantType: $assistantType,
+        assistantId: $assistantId,
+        userQuery: $userQuery,
+        updatedBy: $updatedBy,
+        threadId: $threadId
+    ) {
+        ...AskOpenAIInfo
+    }
+}
+
+query getLastMessage(
+    $assistantId: String,
+    $threadId: String!,
+    $role: String!
+) {
+    lastMessage(
+        assistantId: $assistantId,
+        threadId: $threadId,
+        role: $role
+    ){
+        ...LiveMessageInfo
+    }
+}
+
+query getLiveMessages(
+    $threadId: String!,
+    $roles: [String],
+    $order: String
+) {
+    liveMessages(
+        threadId: $threadId,
+        roles: $roles,
+        order: $order
+    ){
+        ...LiveMessageInfo
+    }
+}
+
+query getCurrentRun(
+    $assistantId: String!,
+    $threadId: String!,
+    $runId: String!,
+    $updatedBy: String!
+) {
+    currentRun(
+        assistantId: $assistantId,
+        threadId: $threadId,
+        runId: $runId,
+        updatedBy: $updatedBy
+    ){
+        ...CurrentRunInfo
+    }
+}
+
+query getAssistant(
+    $assistantType: String!,
+    $assistantId: String!
+) {
+    assistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId
+    ) {
+        ...AssistantInfo
+    }
+}
+
+query getAssistantList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $assistantType: String,
+    $assistantName: String
+) {
+    assistantList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        assistantType: $assistantType,
+        assistantName: $assistantName
+    ) {
+        ...AssistantListInfo
+    }
+}
+
+mutation insertUpdateAssistant(
+    $assistantType: String!,
+    $assistantId: String!,
+    $assistantName: String!,
+    $functions: [JSON]!,
+    $updatedBy: String!
+) {
+    insertUpdateAssistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId,
+        assistantName: $assistantName,
+        functions: $functions,
+        updatedBy: $updatedBy
+    ) {
+        assistant{
+            ...AssistantInfo
+        }
+    }
+}
+
+mutation deleteAssistant(
+    $assistantType: String!,
+    $assistantId: String!
+) {
+    deleteAssistant(
+        assistantType: $assistantType,
+        assistantId: $assistantId
+    ) {
+        ok
+    }
+}
+
+query getThread(
+    $assistantId: String!,
+    $threadId: String!
+) {
+    thread(
+        assistantId: $assistantId,
+        threadId: $threadId
+    ) {
+        ...ThreadInfo
+    }
+}
+
+query getThreadList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $assistantId: String,
+    $assistantTypes: [String]
+) {
+    threadList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        assistantId: $assistantId,
+        assistantTypes: $assistantTypes
+    ) {
+        ...ThreadListInfo
+    }
+}
+
+mutation insertUpdateThread(
+    $assistantId: String!,
+    $threadId: String!,
+    $assistantType: String!,
+    $run: JSON,
+    $updatedBy: String!
+) {
+    insertUpdateThread(
+        assistantId: $assistantId,
+        threadId: $threadId,
+        assistantType: $assistantType,
+        run: $run,
+        updatedBy: $updatedBy
+    ) {
+        thread{
+            ...ThreadInfo
+        }
+    }
+}
+
+mutation deleteThread(
+    $assistantId: String!,
+    $threadId: String!
+) {
+    deleteThread(
+        assistantId: $assistantId,
+        threadId: $threadId
+    ) {
+        ok
+    }
+}
+
+query getMessage(
+    $threadId: String!,
+    $messageId: String!
+) {
+    message(
+        threadId: $threadId,
+        messageId: $messageId
+    ) {
+        ...MessageInfo
+    }
+}
+
+query getMessageList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $threadId: String,
+    $roles: [String],
+    $message: String
+) {
+    messageList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        threadId: $threadId,
+        roles: $roles,
+        message: $message
+    ) {
+        ...MessageListInfo
+    }
+}
+
+mutation insertUpdateMessage(
+    $threadId: String!,
+    $messageId: String!,
+    $runId: String!,
+    $role: String!,
+    $message: String!,
+    $createdAt: DateTime!
+) {
+    insertUpdateMessage(
+        threadId: $threadId,
+        messageId: $messageId,
+        runId: $runId,
+        role: $role,
+        message: $message,
+        createdAt: $createdAt
+    ) {
+        message{
+            ...MessageInfo
+        }
+    }
+}
+
+mutation deleteMessage(
+    $threadId: String!,
+    $messageId: String!
+) {
+    deleteMessage(
+        threadId: $threadId,
+        messageId: $messageId
+    ) {
+        ok
+    }
+}
+```
+
+This GraphQL schema provides you with the tools to construct queries and mutations to interact with OpenAI assistant API and DynamoDB tables for future usage. Each query or mutation is named and can accept variables for customization.
+
+### Using the Payload for Querying or Mutating Data
+
+You can use the following payload structure to execute GraphQL queries or mutations programmatically:
+
+```python
+payload = {
+    "query": document,
+    "variables": variables,
+    "operation_name": "getSelectValues",
+}
+```
+
+Parameters:
+- `query`: The GraphQL query or mutation document you've loaded earlier.
+- `variables`: Any variables needed for your GraphQL query or mutation.
+- `operation_name`: The name of the operation to be executed, corresponding to a named query or mutation in your GraphQL schema.
+
+These parameters allow you to customize your GraphQL requests as needed, making your interactions with NetSuite data highly flexible.

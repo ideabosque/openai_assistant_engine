@@ -13,15 +13,14 @@ import threading
 import time
 import unittest
 import wave
-from io import BytesIO, StringIO
+from io import BytesIO
 from pathlib import Path
 
 import keyboard
-import paramiko
 import pyaudio
 from dotenv import load_dotenv
+from openai import OpenAI
 from pydub import AudioSegment
-from sshtunnel import SSHTunnelForwarder
 
 load_dotenv()
 setting = {
@@ -29,8 +28,13 @@ setting = {
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
+    "whisper_model": os.getenv("whisper_model"),
+    "tts_model": os.getenv("tts_model"),
+    "assistant_voice": os.getenv("assistant_voice"),
 }
-
+client = OpenAI(
+    api_key=setting["openai_api_key"],
+)
 document = Path(
     os.path.join(os.path.dirname(__file__), "openai_assistant_engine.graphql")
 ).read_text()
@@ -44,10 +48,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
 
 from openai_assistant_engine import OpenaiAssistantEngine
-from openai_assistant_engine.handlers import (
-    encode_audio_to_base64,
-    text_to_base64_speech,
-)
 
 
 def record_audio(frames, stream, chunk):
@@ -82,6 +82,49 @@ def play_base64_audio(encoded_audio):
     playback.terminate()
 
 
+# Convert to base64
+def encode_audio_to_base64(audio_buffer):
+    encoded_audio = base64.b64encode(audio_buffer.read()).decode("utf-8")
+    return encoded_audio
+
+
+def convert_base64_audio_to_text(encoded_audio):
+    audio_data = base64.b64decode(encoded_audio)
+    audio_buffer = BytesIO(audio_data)
+    audio_buffer.seek(0)
+
+    # Ensure the audio is recognized as an MP3 file
+    audio = AudioSegment.from_file(audio_buffer)
+    mp3_buffer = BytesIO()
+    audio.export(mp3_buffer, format="mp3")
+    mp3_buffer.seek(0)
+
+    # Send the BytesIO object directly to the transcription API
+    mp3_buffer.name = "audio.mp3"  # Assign a name attribute to mimic a file
+    transcript = client.audio.transcriptions.create(
+        model=setting["whisper_model"], file=mp3_buffer
+    )
+
+    return transcript.text
+
+
+def text_to_base64_speech(text):
+    # Create the speech response with streaming
+    response = client.audio.speech.create(
+        model=setting["tts_model"], voice=setting["assistant_voice"], input=text
+    )
+
+    # Stream the response content into BytesIO
+    audio_buffer = BytesIO()
+    for chunk in response.iter_bytes():
+        audio_buffer.write(chunk)
+
+    # Reset the buffer position to the beginning
+    audio_buffer.seek(0)
+
+    return encode_audio_to_base64(audio_buffer)
+
+
 class OpenaiAssistantEngineTest(unittest.TestCase):
     def setUp(self):
         self.openai_assistant_engine = OpenaiAssistantEngine(logger, **setting)
@@ -100,7 +143,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -167,7 +210,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 last_message,
             )
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search_by_voice(self):
         global recording
         recording = False
@@ -238,7 +281,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             payload = {
                 "query": document,
                 "variables": {
-                    "userQuery": encoded_audio,
+                    "userQuery": convert_base64_audio_to_text(encoded_audio),
                     "assistantId": assistant_id,
                     "assistantType": "conversation",
                     "threadId": thread_id,
@@ -287,7 +330,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             )
             # logger.info(response)
             last_message = response["data"]["lastMessage"]["message"]
-            play_base64_audio(last_message)
+            print("AI:", last_message)
+            play_base64_audio(text_to_base64_speech(last_message))
 
             print("Press 'q' to quit or any other key to continue.")
             if keyboard.read_event().name == "q":

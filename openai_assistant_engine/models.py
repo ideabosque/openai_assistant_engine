@@ -11,6 +11,7 @@ from pynamodb.attributes import (
     UnicodeAttribute,
     UTCDateTimeAttribute,
 )
+
 from silvaengine_dynamodb_base import BaseModel
 
 
@@ -34,7 +35,6 @@ class ThreadModel(BaseModel):
     assistant_id = UnicodeAttribute(hash_key=True)
     thread_id = UnicodeAttribute(range_key=True)
     assistant_type = UnicodeAttribute()
-    is_voice = BooleanAttribute()
     runs = ListAttribute(of=MapAttribute)
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
