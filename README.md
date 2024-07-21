@@ -101,358 +101,219 @@ The following JSON structure is utilized to define and configure an assistant wi
 
 Utilizing the OpenAI Assistant Engine is straightforward. Below, you'll find examples that illustrate how to construct GraphQL queries and mutations for seamless interaction with OpenAI Assistant.
 
-### Loading the GraphQL Schema
+### Call GraphQL API
 
-Begin by loading the GraphQL schema into a document parameter. This schema defines the structure of your queries and mutations.
+Here is a detailed example of how to call a GraphQL API using Python. This method leverages the `requests` library to send a POST request to the API endpoint, with the necessary query and variables provided as parameters.
 
-```graphql
-fragment AskOpenAIInfo on AskOpenAIType {
-    assistantId
-    threadId
-    userQuery
-    currentRunId
-}
-
-fragment LiveMessageInfo on LiveMessageType {
-    threadId
-    runId
-    messageId
-    role
-    message
-    createdAt
-}
-
-fragment CurrentRunInfo on CurrentRunType {
-    threadId
-    runId
-    status
-    usage
-}
-
-fragment AssistantInfo on AssistantType {
-    assistantType
-    assistantId
-    assistantName
-    functions
-    updatedBy
-    createdAt
-    updatedAt
-}
-
-fragment AssistantListInfo on AssistantListType {
-    assistantList{
-        ...AssistantInfo
-    }
-    pageSize
-    pageNumber
-    total
-}
-
-fragment ThreadInfo on ThreadType {
-    assistant
-    threadId
-    isVoice
-    runs
-    updatedBy
-    createdAt
-    updatedBy
-}
-
-fragment ThreadListInfo on ThreadListType {
-    threadList{
-        ...ThreadInfo
-    }
-    pageSize
-    pageNumber
-    total
-}
-
-fragment MessageInfo on MessageType {
-    threadId
-    runId
-    messageId
-    role
-    message
-    createdAt
-}
-
-fragment MessageListInfo on MessageListType {
-    messageList{
-        ...MessageInfo
-    }
-    pageSize
-    pageNumber
-    total
-}
-
-query ping {
-    ping
-}
-
-query askOpenAi(
-    $assistantType: String!,
-    $assistantId: String!,
-    $userQuery: String!,
-    $updatedBy: String!,
-    $threadId: String
-) {
-    askOpenAi(
-        assistantType: $assistantType,
-        assistantId: $assistantId,
-        userQuery: $userQuery,
-        updatedBy: $updatedBy,
-        threadId: $threadId
-    ) {
-        ...AskOpenAIInfo
-    }
-}
-
-query getLastMessage(
-    $assistantId: String,
-    $threadId: String!,
-    $role: String!
-) {
-    lastMessage(
-        assistantId: $assistantId,
-        threadId: $threadId,
-        role: $role
-    ){
-        ...LiveMessageInfo
-    }
-}
-
-query getLiveMessages(
-    $threadId: String!,
-    $roles: [String],
-    $order: String
-) {
-    liveMessages(
-        threadId: $threadId,
-        roles: $roles,
-        order: $order
-    ){
-        ...LiveMessageInfo
-    }
-}
-
-query getCurrentRun(
-    $assistantId: String!,
-    $threadId: String!,
-    $runId: String!,
-    $updatedBy: String!
-) {
-    currentRun(
-        assistantId: $assistantId,
-        threadId: $threadId,
-        runId: $runId,
-        updatedBy: $updatedBy
-    ){
-        ...CurrentRunInfo
-    }
-}
-
-query getAssistant(
-    $assistantType: String!,
-    $assistantId: String!
-) {
-    assistant(
-        assistantType: $assistantType,
-        assistantId: $assistantId
-    ) {
-        ...AssistantInfo
-    }
-}
-
-query getAssistantList(
-    $pageNumber: Int, 
-    $limit: Int,
-    $assistantType: String,
-    $assistantName: String
-) {
-    assistantList(
-        pageNumber: $pageNumber,
-        limit: $limit,
-        assistantType: $assistantType,
-        assistantName: $assistantName
-    ) {
-        ...AssistantListInfo
-    }
-}
-
-mutation insertUpdateAssistant(
-    $assistantType: String!,
-    $assistantId: String!,
-    $assistantName: String!,
-    $functions: [JSON]!,
-    $updatedBy: String!
-) {
-    insertUpdateAssistant(
-        assistantType: $assistantType,
-        assistantId: $assistantId,
-        assistantName: $assistantName,
-        functions: $functions,
-        updatedBy: $updatedBy
-    ) {
-        assistant{
-            ...AssistantInfo
-        }
-    }
-}
-
-mutation deleteAssistant(
-    $assistantType: String!,
-    $assistantId: String!
-) {
-    deleteAssistant(
-        assistantType: $assistantType,
-        assistantId: $assistantId
-    ) {
-        ok
-    }
-}
-
-query getThread(
-    $assistantId: String!,
-    $threadId: String!
-) {
-    thread(
-        assistantId: $assistantId,
-        threadId: $threadId
-    ) {
-        ...ThreadInfo
-    }
-}
-
-query getThreadList(
-    $pageNumber: Int, 
-    $limit: Int,
-    $assistantId: String,
-    $assistantTypes: [String]
-) {
-    threadList(
-        pageNumber: $pageNumber,
-        limit: $limit,
-        assistantId: $assistantId,
-        assistantTypes: $assistantTypes
-    ) {
-        ...ThreadListInfo
-    }
-}
-
-mutation insertUpdateThread(
-    $assistantId: String!,
-    $threadId: String!,
-    $assistantType: String!,
-    $run: JSON,
-    $updatedBy: String!
-) {
-    insertUpdateThread(
-        assistantId: $assistantId,
-        threadId: $threadId,
-        assistantType: $assistantType,
-        run: $run,
-        updatedBy: $updatedBy
-    ) {
-        thread{
-            ...ThreadInfo
-        }
-    }
-}
-
-mutation deleteThread(
-    $assistantId: String!,
-    $threadId: String!
-) {
-    deleteThread(
-        assistantId: $assistantId,
-        threadId: $threadId
-    ) {
-        ok
-    }
-}
-
-query getMessage(
-    $threadId: String!,
-    $messageId: String!
-) {
-    message(
-        threadId: $threadId,
-        messageId: $messageId
-    ) {
-        ...MessageInfo
-    }
-}
-
-query getMessageList(
-    $pageNumber: Int, 
-    $limit: Int,
-    $threadId: String,
-    $roles: [String],
-    $message: String
-) {
-    messageList(
-        pageNumber: $pageNumber,
-        limit: $limit,
-        threadId: $threadId,
-        roles: $roles,
-        message: $message
-    ) {
-        ...MessageListInfo
-    }
-}
-
-mutation insertUpdateMessage(
-    $threadId: String!,
-    $messageId: String!,
-    $runId: String!,
-    $role: String!,
-    $message: String!,
-    $createdAt: DateTime!
-) {
-    insertUpdateMessage(
-        threadId: $threadId,
-        messageId: $messageId,
-        runId: $runId,
-        role: $role,
-        message: $message,
-        createdAt: $createdAt
-    ) {
-        message{
-            ...MessageInfo
-        }
-    }
-}
-
-mutation deleteMessage(
-    $threadId: String!,
-    $messageId: String!
-) {
-    deleteMessage(
-        threadId: $threadId,
-        messageId: $messageId
-    ) {
-        ok
-    }
-}
-```
-
-This GraphQL schema provides you with the tools to construct queries and mutations to interact with OpenAI assistant API and DynamoDB tables for future usage. Each query or mutation is named and can accept variables for customization.
-
-### Using the Payload for Querying or Mutating Data
-
-You can use the following payload structure to execute GraphQL queries or mutations programmatically:
+**Parameters:**
+- `AWS API Gateway:invoke URL`: The endpoint URL for invoking the API.
+- `AWS API Gateway:API Key`: The API key required for accessing the endpoint.
+- `query`: The GraphQL query to be executed.
+- `variables`: The variables needed for the GraphQL query.
 
 ```python
-payload = {
-    "query": document,
-    "variables": variables,
-    "operation_name": "getSelectValues",
+import requests
+import json
+
+def call_graphql_api(api_url, api_key, query, variables):
+    """
+    Call the GraphQL API with the provided query and variables.
+    
+    Parameters:
+    - api_url (str): The endpoint URL for invoking the API.
+    - api_key (str): The API key required for accessing the endpoint.
+    - query (str): The GraphQL query to be executed.
+    - variables (dict): The variables needed for the GraphQL query.
+    
+    Returns:
+    - response (str): The response text from the API.
+    """
+    
+    # Combine the query and variables into a single payload
+    payload = {
+        "query": query,
+        "variables": variables
+    }
+
+    # Convert the payload to a JSON string
+    payload_json = json.dumps(payload)
+
+    # Define the headers for the HTTP request
+    headers = {
+        'x-api-key': api_key,
+        'Content-Type': 'application/json'
+    }
+
+    # Send the HTTP POST request to the API endpoint
+    response = requests.post(api_url, headers=headers, data=payload_json)
+
+    # Return the response text
+    return response.text
+
+# Define the API endpoint and API key
+api_url = <AWS API Gateway:invoke URL>
+api_key = <AWS API Gateway:API Key>
+
+# Define the GraphQL query
+query = <query>
+
+# Define the variables for the GraphQL query
+variables = <variables>
+
+# Call the function and print the response
+response_text = call_graphql_api(api_url, api_key, query, variables)
+print(response_text)
+```
+
+In this example, the `call_graphql_api` function takes the `api_url`, `api_key`, `query`, and `variables` as parameters, allowing for a flexible and reusable way to interact with the GraphQL API. The function combines the query and variables into a payload, sends an HTTP POST request to the API endpoint, and returns the response text.
+
+You can replace the `query` and `variables` with your specific GraphQL query and corresponding variables to customize this script for different use cases.
+
+### Example: Querying 'ask_openai'
+
+Let's delve into a comprehensive example of querying the `ask_openai` operation. This involves leveraging the OpenAI assistant to execute a prompt and receive a detailed response. By integrating this capability, you can harness the power of advanced AI to process user queries, facilitating enhanced interaction and information retrieval.
+
+**Parameters:**
+- `user_query`: The search query provided by the user.
+- `assistant_id`: The unique identifier for the assistant, generated from the OpenAI console.
+- `assistant_type`: The category of assistant being utilized.
+- `thread_id`: The identifier for the conversation thread. This can be `None` for the initial prompt of a conversation. For a continuing conversation, the thread id should match the previous interaction's thread id.
+- `updated_by`: The identifier of the user or system that last modified the query.
+
+```python
+.....
+# Define the GraphQL query and variables
+query = """
+    fragment AskOpenAIInfo on AskOpenAIType {
+        assistantId
+        threadId
+        userQuery
+        currentRunId
+    }
+
+    query askOpenAi(
+        $assistantType: String!,
+        $assistantId: String!,
+        $userQuery: String!,
+        $updatedBy: String!,
+        $threadId: String
+    ) {
+        askOpenAi(
+            assistantType: $assistantType,
+            assistantId: $assistantId,
+            userQuery: $userQuery,
+            updatedBy: $updatedBy,
+            threadId: $threadId
+        ) {
+            ...AskOpenAIInfo
+        }
+    }
+"""
+
+# Define the variables for the GraphQL query
+variables = {
+    "userQuery": <user_query>,
+    "assistantId": <assistant_id>,
+    "assistantType": <assistant_type>,
+    "threadId": <thread_id>,
+    "updatedBy": <updated_by>
+}
+.....
+```
+
+This example illustrates the seamless integration of GraphQL with the OpenAI assistant API, enabling sophisticated interaction with AI-driven query processing. By utilizing this approach, developers can create robust applications that leverage the advanced capabilities of the OpenAI assistant, providing users with accurate and timely information based on their queries.
+
+### Example: Querying 'current_run'
+
+The following example demonstrates how to retrieve information about the current run. This can be used to check whether the run has been completed or is still in progress.
+
+**Parameters:**
+- `assistant_id`: A unique identifier for the assistant, generated from the OpenAI console.
+- `thread_id`: The identifier for the conversation thread. For an initial prompt, this can be `None`. For ongoing conversations, it should match the thread id from the previous interaction.
+- `run_id`: The identifier for the current run.
+- `updated_by`: The identifier of the user or system that last modified the query.
+
+```python
+# Define the GraphQL query and variables
+query = """
+    fragment CurrentRunInfo on CurrentRunType {
+        threadId
+        runId
+        status
+        usage
+    }
+
+    query getCurrentRun(
+        $assistantId: String!,
+        $threadId: String!,
+        $runId: String!,
+        $updatedBy: String!
+    ) {
+        currentRun(
+            assistantId: $assistantId,
+            threadId: $threadId,
+            runId: $runId,
+            updatedBy: $updatedBy
+        ) {
+            ...CurrentRunInfo
+        }
+    }
+"""
+
+# Define the variables for the GraphQL query
+variables = {
+    "assistantId": <assistant_id>,
+    "threadId": <thread_id>,
+    "runId": <run_id>,
+    "updatedBy": <updated_by>,
 }
 ```
 
-Parameters:
-- `query`: The GraphQL query or mutation document you've loaded earlier.
-- `variables`: Any variables needed for your GraphQL query or mutation.
-- `operation_name`: The name of the operation to be executed, corresponding to a named query or mutation in your GraphQL schema.
+This query retrieves essential details about the current run, such as its status and usage, helping you monitor the progress and completion status efficiently.
 
-These parameters allow you to customize your GraphQL requests as needed, making your interactions with NetSuite data highly flexible.
+
+### Example: Querying 'last_message'
+
+The following example demonstrates how to retrieve the last message in a conversation thread. This can be used to fetch the most recent message along with its details.
+
+**Parameters:**
+- `assistant_id`: A unique identifier for the assistant, generated from the OpenAI console. This can be optional in this query.
+- `thread_id`: The identifier for the conversation thread. It is required for identifying the specific conversation.
+- `role`: The role of the message sender (e.g., user or assistant). This helps filter the messages based on the sender's role.
+
+```python
+# Define the GraphQL query and variables
+query = """
+    fragment LiveMessageInfo on LiveMessageType {
+        threadId
+        runId
+        messageId
+        role
+        message
+        createdAt
+    }
+
+    query getLastMessage(
+        $assistantId: String,
+        $threadId: String!,
+        $role: String!
+    ) {
+        lastMessage(
+            assistantId: $assistantId,
+            threadId: $threadId,
+            role: $role
+        ) {
+            ...LiveMessageInfo
+        }
+    }
+"""
+
+# Define the variables for the GraphQL query
+variables = {
+    "assistantId": <assistant_id>,
+    "threadId": <thread_id>, 
+    "role": <role>
+}
+```
+
+This query retrieves the latest message in a specified conversation thread, providing details such as the message content, sender's role, and the timestamp of when the message was created.
