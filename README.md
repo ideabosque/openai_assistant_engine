@@ -891,10 +891,3 @@ In this video demonstration, you will see both chatbot scripts in action:
 5. **Conclusion**: The video concludes with a summary of the chatbots' capabilities and potential applications.
 
 This demonstration will help you visualize the interaction process and understand how the chatbots handle user queries in real-time.
-
-
-
-
-#### Example Video Demonstration
-
-In this video demonstration, you will see the chatbot script in action. This demonstration will help you visualize the interaction process and understand how the chatbot handles user queries in real-time.
