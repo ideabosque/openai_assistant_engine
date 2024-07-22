@@ -493,7 +493,7 @@ if __name__ == "__main__":
     main()
 ```
 
-### Detailed Steps and Setup
+#### Detailed Steps and Setup
 
 0. **Configuration for the Function on the API**: Set up the function and the module in the `oae-assistants` table.
    
@@ -529,7 +529,7 @@ if __name__ == "__main__":
    - **Check Query Status**: Continuously checks the status of the current run until it is completed.
    - **Retrieve Last Message**: Fetches the last message from the AI assistant and prints it.
 
-### Required Variables and `.env` Setup
+#### Required Variables and `.env` Setup
 
 The script requires the following variables, which should be defined in a `.env` file:
 
@@ -545,7 +545,7 @@ API_KEY=your_api_key_here
 ASSISTANT_ID=your_assistant_id_here
 ```
 
-### How to Run
+#### How to Run
 
 1. **Install Dependencies**: Ensure you have the required Python packages:
    ```bash
@@ -561,6 +561,6 @@ ASSISTANT_ID=your_assistant_id_here
 
 This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries.
 
-### Example Video Demonstration
+#### Example Video Demonstration
 
 In this video demonstration, you will see the chatbot script in action. This demonstration will help you visualize the interaction process and understand how the chatbot handles user queries in real-time.
