@@ -317,3 +317,250 @@ variables = {
 ```
 
 This query retrieves the latest message in a specified conversation thread, providing details such as the message content, sender's role, and the timestamp of when the message was created.
+
+### Complete Integration: A Chatbot with External Redis Vector Search Database
+
+The following script demonstrates a chatbot that leverages external functions to query data from a Redis vector search database and summarizes the results for the user. This example uses the OpenAI API for interaction.
+
+```python
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+__author__ = "bibow"
+
+import logging
+import requests
+import json
+import time
+import sys
+import os
+from dotenv import load_dotenv
+
+"""
+This script facilitates interactions with an AI assistant using the OpenAI API.
+Users can submit queries, which are processed by the API, and receive responses from the AI assistant.
+The program operates in a loop, allowing continuous user interaction until "exit" is typed.
+"""
+
+# Setup logging
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Define the API endpoint and headers
+API_URL = os.getenv("API_URL")
+HEADERS = {
+    'x-api-key': os.getenv("API_KEY"),
+    'Content-Type': 'application/json'
+}
+ASSISTANT_ID = os.getenv("ASSISTANT_ID")
+
+# Main function
+def main():
+    logger.info("Starting AI assistant interaction...")
+    print("Hello! I am an AI assistant. How can I help you today?")
+    thread_id = None
+
+    while True:
+        user_input = input("You: ").strip()
+
+        if user_input.lower() == "exit":
+            print("Exiting the program.")
+            break
+
+        payload = json.dumps({
+            "query": """
+                fragment AskOpenAIInfo on AskOpenAIType {
+                    assistantId
+                    threadId
+                    userQuery
+                    currentRunId
+                }
+
+                query askOpenAi(
+                    $assistantType: String!,
+                    $assistantId: String!,
+                    $userQuery: String!,
+                    $updatedBy: String!,
+                    $threadId: String
+                ) {
+                    askOpenAi(
+                        assistantType: $assistantType,
+                        assistantId: $assistantId,
+                        userQuery: $userQuery,
+                        updatedBy: $updatedBy,
+                        threadId: $threadId
+                    ) {
+                        ...AskOpenAIInfo
+                    }
+                }
+            """,
+            "variables": {
+                "userQuery": user_input,
+                "assistantId": ASSISTANT_ID,
+                "assistantType": "conversation",
+                "threadId": thread_id,
+                "updatedBy": "Use XYZ"
+            }
+        })
+
+        response = requests.post(API_URL, headers=HEADERS, data=payload).json()
+        logger.info(response)
+        thread_id = response["data"]["askOpenAi"]["threadId"]
+        current_run_id = response["data"]["askOpenAi"]["currentRunId"]
+
+        while True:
+            payload = json.dumps({
+                "query": """
+                    fragment CurrentRunInfo on CurrentRunType {
+                        threadId
+                        runId
+                        status
+                        usage
+                    }
+
+                    query getCurrentRun(
+                        $assistantId: String!,
+                        $threadId: String!,
+                        $runId: String!,
+                        $updatedBy: String!
+                    ) {
+                        currentRun(
+                            assistantId: $assistantId,
+                            threadId: $threadId,
+                            runId: $runId,
+                            updatedBy: $updatedBy
+                        ){
+                            ...CurrentRunInfo
+                        }
+                    }
+                """,
+                "variables": {
+                    "assistantId": ASSISTANT_ID,
+                    "threadId": thread_id,
+                    "runId": current_run_id,
+                    "updatedBy": "Use XYZ"
+                }
+            })
+
+            response = requests.post(API_URL, headers=HEADERS, data=payload).json()
+            logger.info(response)
+            if response["data"]["currentRun"]["status"] == "completed":
+                break
+
+            time.sleep(5)
+
+        payload = json.dumps({
+            "query": """
+                fragment LiveMessageInfo on LiveMessageType {
+                    threadId
+                    runId
+                    messageId
+                    role
+                    message
+                    createdAt
+                }
+
+                query getLastMessage(
+                    $assistantId: String,
+                    $threadId: String!,
+                    $role: String!
+                ) {
+                    lastMessage(
+                        assistantId: $assistantId,
+                        threadId: $threadId,
+                        role: $role
+                    ){
+                        ...LiveMessageInfo
+                    }
+                }
+            """,
+            "variables": {
+                "assistantId": ASSISTANT_ID,
+                "threadId": thread_id,
+                "role": "assistant"
+            }
+        })
+
+        response = requests.post(API_URL, headers=HEADERS, data=payload).json()
+        logger.info(response)
+        last_message = response["data"]["lastMessage"]["message"]
+
+        print("AI:", last_message)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Detailed Steps and Setup
+
+0. **Configuration for the Function on the API**: Set up the function and the module in the `oae-assistants` table.
+   
+   Example function setup:
+   ```json
+   {
+     "assistant_type": "conversation",
+     "assistant_id": "asst_XXXXXXXXXXXXXXXXX",
+     "assistant_name": "Data Inquiry Assistant",
+     "functions": [
+       {
+         "class_name": "OpenAIFunctBase",
+         "configuration": {
+           "endpoint_id": "api"
+         },
+         "function_name": "inquiry_data",
+         "module_name": "openai_funct_base"
+       }
+     ]
+   }
+   ```
+
+1. **Setup Logging**: The script begins by setting up logging to record information and debug messages.
+
+2. **Load Environment Variables**: Using `dotenv`, the script loads necessary environment variables from a `.env` file.
+
+3. **Define API Endpoint and Headers**: The script sets up the API URL and headers, including an API key for authentication.
+
+4. **Main Function**:
+   - **Initialization**: Logs the start of the AI assistant interaction and prints a welcome message.
+   - **User Input Loop**: Continuously prompts the user for input until "exit" is typed.
+   - **API Request for User Query**: Constructs and sends a GraphQL query to the API with the user’s input, retrieves the response, and extracts the `thread_id` and `current_run_id`.
+   - **Check Query Status**: Continuously checks the status of the current run until it is completed.
+   - **Retrieve Last Message**: Fetches the last message from the AI assistant and prints it.
+
+### Required Variables and `.env` Setup
+
+The script requires the following variables, which should be defined in a `.env` file:
+
+- **API_URL**: The endpoint URL for the API.
+- **API_KEY**: The API key used for authentication.
+- **ASSISTANT_ID**: The unique identifier for the AI assistant.
+
+Example `.env` file:
+
+```plaintext
+API_URL=https://api.yourservice.com/v1/graphql
+API_KEY=your_api_key_here
+ASSISTANT_ID=your_assistant_id_here
+```
+
+### How to Run
+
+1. **Install Dependencies**: Ensure you have the required Python packages:
+   ```bash
+   pip install requests python-dotenv
+   ```
+
+2. **Create `.env` File**: In the same directory as your script, create a `.env` file with the necessary variables.
+
+3. **Run the Script**: Execute the script:
+   ```bash
+   python your_script_name.py
+   ```
+
+This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries.
+
+### Example Video Demonstration
+
+In this video demonstration, you will see the chatbot script in action. This demonstration will help you visualize the interaction process and understand how the chatbot handles user queries in real-time.
