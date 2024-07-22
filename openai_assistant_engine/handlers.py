@@ -15,6 +15,9 @@ from typing import Any, Callable, Dict, List, Optional
 import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -22,8 +25,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
