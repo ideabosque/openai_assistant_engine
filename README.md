@@ -320,7 +320,9 @@ This query retrieves the latest message in a specified conversation thread, prov
 
 ### Complete Integration: A Chatbot with External Redis Vector Search Database
 
-The following script demonstrates a chatbot that leverages external functions to query data from a Redis vector search database and summarizes the results for the user. This example uses the OpenAI API for interaction.
+The following scripts demonstrate two versions of a chatbot that leverage external functions to query data from a Redis vector search database and summarize the results for the user. The first version uses text input, while the second incorporates voice recognition for input and text-to-speech for responses.
+
+#### Version 1: Text Input
 
 ```python
 #!/usr/bin/python
@@ -493,6 +495,311 @@ if __name__ == "__main__":
     main()
 ```
 
+#### Version 2: Voice Recognition
+
+```python
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+__author__ = "bibow"
+
+import logging
+import requests
+import json
+import time
+import sys
+import os
+import base64
+from io import BytesIO
+from pydub import AudioSegment
+import pyaudio
+import threading
+import keyboard
+import wave
+from dotenv import load_dotenv
+from openai import OpenAI
+
+# Setup logging
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# Define the API endpoint and headers
+API_URL = os.getenv("API_URL")
+HEADERS = {
+    'x-api-key': os.getenv("API_KEY"),
+    'Content-Type': 'application/json'
+}
+
+# OpenAI API key and configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ASSISTANT_ID = os.getenv("ASSISTANT_ID")
+WHISPER_MODEL = os.getenv("WHISPER_MODEL")
+TTS_MODEL = os.getenv("TTS_MODEL")
+ASSISTANT_VOICE = os.getenv("ASSISTANT_VOICE")
+
+# Audio recording configuration
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+CHUNK = 1024
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+recording = False
+
+# Convert audio to base64
+def encode_audio_to_base64(audio_buffer):
+    return base64.b64encode(audio_buffer.read()).decode("utf-8")
+
+# Convert text to base64 encoded speech
+def text_to_base64_speech(text):
+    response = client.audio.speech.create(
+        model=TTS_MODEL, voice=ASSISTANT_VOICE, input=text
+    )
+    audio_buffer = BytesIO()
+    for chunk in response.iter_bytes():
+        audio_buffer.write(chunk)
+    audio_buffer.seek(0)
+    return encode_audio_to_base64(audio_buffer)
+
+# Record audio function
+def record_audio(frames, stream, chunk):
+    print("Recording... Press Space to stop.")
+    while recording:
+        data = stream.read(chunk)
+        frames.append(data)
+    print("Finished recording.")
+
+# Play base64 encoded audio
+def play_base64_audio(encoded_audio):
+    audio_data = base64.b64decode(encoded_audio)
+    audio_buffer = BytesIO(audio_data)
+    audio_buffer.seek(0)
+    audio = AudioSegment.from_file(audio_buffer)
+    playback = pyaudio.PyAudio()
+    stream = playback.open(
+        format=playback.get_format_from_width(audio.sample_width),
+        channels=audio.channels,
+        rate=audio.frame_rate,
+        output=True,
+    )
+    stream.write(audio.raw_data)
+    stream.stop_stream()
+    stream.close()
+    playback.terminate()
+
+def convert_base64_audio_to_text(encoded_audio):
+    audio_data = base64.b64decode(encoded_audio)
+    audio_buffer = BytesIO(audio_data)
+    audio_buffer.seek(0)
+
+    # Ensure the audio is recognized as an MP3 file
+    audio = AudioSegment.from_file(audio_buffer)
+    mp3_buffer = BytesIO()
+    audio.export(mp3_buffer, format="mp3")
+    mp3_buffer.seek(0)
+
+    # Send the BytesIO object directly to the transcription API
+    mp3_buffer.name = "audio.mp3"  # Assign a name attribute to mimic a file
+    transcript = client.audio.transcriptions.create(
+        model=WHISPER_MODEL, file=mp3_buffer
+    )
+
+    return transcript.text
+
+# Start recording function
+def start_recording(frames, stream):
+    global recording
+    if not recording:
+        recording = True
+        recording_thread = threading.Thread(
+            target=record_audio, args=(frames, stream, CHUNK)
+        )
+        recording_thread.start()
+
+# Stop recording function
+def stop_recording():
+    global recording
+    if recording:
+        recording = False
+
+# Main function
+def main():
+    thread_id = None
+
+    logger.info("Starting conversation search by voice...")
+    initial_greeting = "Hello! I am an AI assistant. How can I help you today?"
+    print(initial_greeting)
+    response_encoded_audio = text_to_base64_speech(initial_greeting)
+    play_base64_audio(response_encoded_audio)
+
+    while True:
+        audio = pyaudio.PyAudio()
+        stream = audio.open(
+            format=FORMAT,
+            channels=CHANNELS,
+            rate=RATE,
+            input=True,
+            frames_per_buffer=CHUNK,
+        )
+
+        frames = []
+
+        print("Press Enter to start recording.")
+        keyboard.wait("enter")
+        start_recording(frames, stream)
+
+        print("Press Space to stop recording.")
+        keyboard.wait("space")
+        stop_recording()
+
+        stream.stop_stream()
+        stream.close()
+        audio.terminate()
+
+        audio_buffer = BytesIO()
+        wf = wave.open(audio_buffer, "wb")
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(audio.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(b"".join(frames))
+        wf.close()
+        audio_buffer.seek(0)
+
+        encoded_audio = encode_audio_to_base64(audio_buffer)
+        logger.info(f"Base64 Encoded Audio: {encoded_audio}")
+
+        payload = json.dumps({
+            "query": """
+                fragment AskOpenAIInfo on AskOpenAIType {
+                    assistantId
+                    threadId
+                    userQuery
+                    currentRunId
+                }
+
+                query askOpenAi(
+                    $assistantType: String!,
+                    $assistantId: String!,
+                    $userQuery: String!,
+                    $updatedBy: String!,
+                    $threadId: String
+                ) {
+                    askOpenAi(
+                        assistantType: $assistantType,
+                        assistantId: $assistantId,
+                        userQuery: $userQuery,
+                        updatedBy: $updatedBy,
+                        threadId: $threadId
+                    ) {
+                        ...AskOpenAIInfo
+                    }
+                }
+            """,
+            "variables": {
+                "userQuery": convert_base64_audio_to_text(encoded_audio),
+                "assistantId": ASSISTANT_ID,
+                "assistantType": "conversation",
+                "threadId": thread_id,
+                "updatedBy": "Use XYZ",
+            },
+            "operation_name": "askOpenAi",
+        })
+
+        response = requests.post(API_URL, headers=HEADERS, data=payload)
+        response_data = response.json()
+        logger.info(response_data)
+        thread_id = response_data["data"]["askOpenAi"]["threadId"]
+        current_run_id = response_data["data"]["askOpenAi"]["currentRunId"]
+
+        while True:
+            payload = json.dumps({
+                "query": """
+                    fragment CurrentRunInfo on CurrentRunType {
+                        threadId
+                        runId
+                        status
+                        usage
+                    }
+
+                    query getCurrentRun(
+                        $assistantId: String!,
+                        $threadId: String!,
+                        $runId: String!,
+                        $updatedBy: String!
+                    ) {
+                        currentRun(
+                            assistantId: $assistantId,
+                            threadId: $threadId,
+                            runId: $runId,
+                            updatedBy: $updatedBy
+                        ){
+                            ...CurrentRunInfo
+                        }
+                    }
+                """,
+                "variables": {
+                    "assistantId": ASSISTANT_ID,
+                    "threadId": thread_id,
+                    "runId": current_run_id,
+                    "updatedBy": "Use XYZ",
+                },
+                "operation_name": "getCurrentRun",
+            })
+            response = requests.post(API_URL, headers=HEADERS, data=payload)
+            response_data = response.json()
+            logger.info(response_data)
+            if response_data["data"]["currentRun"]["status"] == "completed":
+                break
+            time.sleep(5)
+
+        payload = json.dumps({
+            "query": """
+                fragment LiveMessageInfo on LiveMessageType {
+                    threadId
+                    runId
+                    messageId
+                    role
+                    message
+                    createdAt
+                }
+
+                query getLastMessage(
+                    $assistantId: String,
+                    $threadId: String!,
+                    $role: String!
+                ) {
+                    lastMessage(
+                        assistantId: $assistantId,
+                        threadId: $threadId,
+                        role: $role
+                    ){
+                        ...LiveMessageInfo
+                    }
+                }
+            """,
+            "variables": {
+                "assistantId": ASSISTANT_ID,
+                "threadId": thread_id,
+                "role": "assistant",
+            },
+            "operation_name": "getLastMessage",
+        })
+        response = requests.post(API_URL, headers=HEADERS, data=payload)
+        response_data = response.json()
+        last_message = response_data["data"]["lastMessage"]["message"]
+        print("AI:", last_message)
+        play_base64_audio(text_to_base64_speech(last_message))
+
+        print("Press 'q' to quit or any other key to continue.")
+        if keyboard.read_event().name == "q":
+            break
+
+if __name__ == "__main__":
+    main()
+```
+
 #### Detailed Steps and Setup
 
 0. **Configuration for the Function on the API**: Set up the function and the module in the `oae-assistants` table.
@@ -523,11 +830,11 @@ if __name__ == "__main__":
 3. **Define API Endpoint and Headers**: The script sets up the API URL and headers, including an API key for authentication.
 
 4. **Main Function**:
-   - **Initialization**: Logs the start of the AI assistant interaction and prints a welcome message.
-   - **User Input Loop**: Continuously prompts the user for input until "exit" is typed.
-   - **API Request for User Query**: Constructs and sends a GraphQL query to the API with the user’s input, retrieves the response, and extracts the `thread_id` and `current_run_id`.
+   - **Initialization**: Logs the start of the AI assistant interaction and prints a welcome message (and converts it to speech in the voice version).
+   - **User Input Loop**: Continuously prompts the user for input until "exit" is typed. In the voice version, the user can press Enter to start recording and Space to stop recording.
+   - **API Request for User Query**: Constructs and sends a GraphQL query to the API with the user's input, retrieves the response, and extracts the `thread_id` and `current_run_id`.
    - **Check Query Status**: Continuously checks the status of the current run until it is completed.
-   - **Retrieve Last Message**: Fetches the last message from the AI assistant and prints it.
+   - **Retrieve Last Message**: Fetches the last message from the AI assistant and prints it (or converts it to speech in the voice version).
 
 #### Required Variables and `.env` Setup
 
@@ -536,6 +843,10 @@ The script requires the following variables, which should be defined in a `.env`
 - **API_URL**: The endpoint URL for the API.
 - **API_KEY**: The API key used for authentication.
 - **ASSISTANT_ID**: The unique identifier for the AI assistant.
+- **OPENAI_API_KEY** (voice version): The OpenAI API key for authentication.
+- **WHISPER_MODEL** (voice version): The model ID for the OpenAI Whisper transcription model (ex. whisper-1).
+- **TTS_MODEL** (voice version): The model ID for the OpenAI text-to-speech model (ex. tts-1).
+- **ASSISTANT_VOICE** (voice version): The voice ID to be used for text-to-speech (ex. alloy).
 
 Example `.env` file:
 
@@ -543,13 +854,17 @@ Example `.env` file:
 API_URL=https://api.yourservice.com/v1/graphql
 API_KEY=your_api_key_here
 ASSISTANT_ID=your_assistant_id_here
+OPENAI_API_KEY=your_openai_api_key_here
+WHISPER_MODEL=your_whisper_model_id_here
+TTS_MODEL=your_tts_model_id_here
+ASSISTANT_VOICE=your_assistant_voice_id_here
 ```
 
 #### How to Run
 
 1. **Install Dependencies**: Ensure you have the required Python packages:
    ```bash
-   pip install requests python-dotenv
+   pip install requests python-dotenv pydub pyaudio keyboard
    ```
 
 2. **Create `.env` File**: In the same directory as your script, create a `.env` file with the necessary variables.
@@ -559,7 +874,26 @@ ASSISTANT_ID=your_assistant_id_here
    python your_script_name.py
    ```
 
-This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries.
+This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries. The voice version will use voice recognition for input and text-to-speech for output.
+
+#### Example Video Demonstration
+
+In this video demonstration, you will see both chatbot scripts in action:
+
+1. **Introduction**: The video begins with an introduction to the chatbots and a brief explanation of their functionalities.
+
+2. **Running the Text Input Script**: The presenter runs the text input script in a terminal, showcasing the initial greeting from the AI assistant and the text-based interaction.
+
+3. **Running the Voice Recognition Script**: The presenter runs the voice recognition script, demonstrating how to record a query using voice, how the input is processed, transcribed, and sent to the AI assistant. The AI assistant's response is then converted to speech and played back.
+
+4. **Result Presentation**: The video focuses on the smooth interaction between the user and the AI assistant, highlighting how the assistant fetches and returns information from the Redis vector search database.
+
+5. **Conclusion**: The video concludes with a summary of the chatbots' capabilities and potential applications.
+
+This demonstration will help you visualize the interaction process and understand how the chatbots handle user queries in real-time.
+
+
+
 
 #### Example Video Demonstration
 
