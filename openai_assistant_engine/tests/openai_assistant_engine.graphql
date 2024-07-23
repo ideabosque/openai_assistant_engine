@@ -94,6 +94,9 @@ query askOpenAi(
     $assistantId: String!,
     $instructions: String,
     $attachments: [JSON],
+    $toolResources: JSON,
+    $threadMetadata: JSON,
+    $messageMetadata: JSON,
     $userQuery: String!,
     $updatedBy: String!,
     $threadId: String
@@ -103,6 +106,9 @@ query askOpenAi(
         assistantId: $assistantId,
         instructions: $instructions,
         attachments: $attachments,
+        toolResources: $toolResources,
+        threadMetadata: $threadMetadata,
+        messageMetadata: $messageMetadata,
         userQuery: $userQuery,
         updatedBy: $updatedBy,
         threadId: $threadId
