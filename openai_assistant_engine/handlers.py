@@ -356,6 +356,8 @@ def resolve_ask_open_ai_handler(
         message = {"role": "user", "content": user_query}
         if kwargs.get("attachments"):
             message["attachments"] = kwargs["attachments"]
+        if kwargs.get("message_metadata") is not None:
+            message["metadata"] = kwargs["message_metadata"]
 
         if thread_id is None:
             thread = client.beta.threads.create(
