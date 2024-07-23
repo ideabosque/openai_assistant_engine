@@ -4,8 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from graphene import Boolean, DateTime, List, ObjectType, String
-
+from graphene import Boolean, DateTime, Float, List, ObjectType, String
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -37,6 +36,15 @@ class AssistantType(ObjectType):
     assistant_type = String()
     assistant_id = String()
     assistant_name = String()
+    description = String()
+    model = String()
+    instructions = String()
+    metadata = JSON()
+    temperature = Float()
+    top_p = Float()
+    response_format = String()
+    tools = List(JSON)
+    tool_resources = JSON()
     functions = List(JSON)
     updated_by = String()
     created_at = DateTime()

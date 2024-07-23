@@ -40,8 +40,10 @@ document = Path(
 ).read_text()
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
+sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
+# sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -143,7 +145,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -162,6 +164,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                     "userQuery": user_input,
                     "assistantId": assistant_id,
                     "assistantType": "conversation",
+                    "instructions": "You are the greatful assistant.",
                     "threadId": thread_id,
                     "updatedBy": "Use XYZ",
                 },
@@ -210,7 +213,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 last_message,
             )
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search_by_voice(self):
         global recording
         recording = False
@@ -353,9 +356,11 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_assistant(self):
         variables = {
-            "assistantType": "agent",
-            "assistantId": "123456",
-            "assistantName": "Agent ABC",
+            "assistantType": "conversation",
+            "assistantId": "asst_GUaLtBy94VomdDCaTgpgMpcW",
+            "assistantName": "Conversation ABC",
+            "model": "gpt-4o-2024-05-13",
+            "instructions": "You are a helpful assistant.",
             "functions": {},
             "updatedBy": "user abc",
         }
@@ -370,8 +375,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_delete_assistant(self):
         variables = {
-            "assistantType": "agent",
-            "assistantId": "123456",
+            "assistantType": "conversation",
+            "assistantId": "asst_GUaLtBy94VomdDCaTgpgMpcW",
         }
         payload = {
             "query": document,
@@ -384,8 +389,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_assistant(self):
         variables = {
-            "assistantType": "agent",
-            "assistantId": "123456",
+            "assistantType": "conversation",
+            "assistantId": "asst_jUzZKojROaz6HACC1uzaqR5x",
         }
         payload = {
             "query": document,

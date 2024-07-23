@@ -7,7 +7,7 @@ __author__ = "bibow"
 import traceback
 from typing import Any, Dict
 
-from graphene import Boolean, DateTime, Field, List, Mutation, String
+from graphene import Boolean, DateTime, Field, Float, List, Mutation, String
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -26,8 +26,17 @@ class InsertUpdateAssistant(Mutation):
 
     class Arguments:
         assistant_type = String(required=True)
-        assistant_id = String(required=True)
+        assistant_id = String(required=False)
         assistant_name = String(required=True)
+        description = String(required=False)
+        model = String(required=True)
+        instructions = String(required=True)
+        tools = List(JSON, required=False)
+        tool_resources = JSON(required=False)
+        metadata = JSON(required=False)
+        temperature = Float(required=False)
+        top_p = Float(required=False)
+        response_format = String(required=False)
         functions = List(JSON, required=True)
         updated_by = String(required=True)
 
