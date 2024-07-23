@@ -25,6 +25,15 @@ fragment AssistantInfo on AssistantType {
     assistantType
     assistantId
     assistantName
+    description
+    model
+    instructions
+    metadata
+    temperature
+    topP
+    responseFormat
+    tools
+    toolResources
     functions
     updatedBy
     createdAt
@@ -83,6 +92,8 @@ query ping {
 query askOpenAi(
     $assistantType: String!,
     $assistantId: String!,
+    $instructions: String,
+    $attachments: [JSON],
     $userQuery: String!,
     $updatedBy: String!,
     $threadId: String
@@ -90,6 +101,8 @@ query askOpenAi(
     askOpenAi(
         assistantType: $assistantType,
         assistantId: $assistantId,
+        instructions: $instructions,
+        attachments: $attachments,
         userQuery: $userQuery,
         updatedBy: $updatedBy,
         threadId: $threadId
@@ -172,8 +185,17 @@ query getAssistantList(
 
 mutation insertUpdateAssistant(
     $assistantType: String!,
-    $assistantId: String!,
+    $assistantId: String,
     $assistantName: String!,
+    $description: String,
+    $model: String!,
+    $instructions: String!,
+    $tools: [JSON],
+    $toolResources: JSON,
+    $metadata: JSON,
+    $temperature: Float,
+    $topP: Float,
+    $responseFormat: String,
     $functions: [JSON]!,
     $updatedBy: String!
 ) {
@@ -181,6 +203,15 @@ mutation insertUpdateAssistant(
         assistantType: $assistantType,
         assistantId: $assistantId,
         assistantName: $assistantName,
+        description: $description,
+        model: $model,
+        instructions: $instructions,
+        tools: $tools,
+        toolResources: $toolResources,
+        metadata: $metadata,
+        temperature: $temperature,
+        topP: $topP,
+        responseFormat: $responseFormat,
         functions: $functions,
         updatedBy: $updatedBy
     ) {

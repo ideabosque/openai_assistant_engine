@@ -9,6 +9,7 @@ from typing import Any, Dict
 from typing import List as Typing_List
 
 from graphene import Field, Int, List, ObjectType, ResolveInfo, String
+from silvaengine_utility import JSON
 
 from .mutations import (
     DeleteAssistant,
@@ -64,6 +65,11 @@ class Query(ObjectType):
         required=True,
         assistant_type=String(required=True),
         assistant_id=String(required=True),
+        instructions=String(required=False),
+        attachments=List(JSON, required=False),
+        tool_resources=JSON(required=False),
+        thread_metadata=JSON(required=False),
+        message_metadata=JSON(required=False),
         user_query=String(required=True),
         updated_by=String(required=True),
         thread_id=String(),

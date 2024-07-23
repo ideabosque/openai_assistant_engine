@@ -15,9 +15,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pendulum
 from graphene import ResolveInfo
 from openai import AssistantEventHandler, OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
+from openai.types.beta import AssistantStreamEvent
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -25,6 +23,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -159,7 +159,7 @@ class EventHandler(AssistantEventHandler):
         AssistantEventHandler.__init__(self)
 
     @override
-    def on_event(self, event: Any) -> None:
+    def on_event(self, event: AssistantStreamEvent) -> None:
         self.logger.debug(f"event: {event.event}")
         if event.event == "thread.run.created":
             self.logger.info(f"current_run_id: {event.data.id}")
@@ -308,22 +308,30 @@ def handle_stream(
     assistant_id: str,
     assistant_type: str,
     queue: Queue,
+    instructions: str = None,  # Optional parameter added here
 ) -> None:
     event_handler = EventHandler(logger, assistant_type, queue=queue)
     with client.beta.threads.runs.stream(
-        thread_id=thread_id, assistant_id=assistant_id, event_handler=event_handler
+        thread_id=thread_id,
+        assistant_id=assistant_id,
+        event_handler=event_handler,
+        instructions=instructions,  # Pass instructions to the stream if provided
     ) as stream:
         stream.until_done()
 
 
 def get_current_run_id_and_start_async_task(
-    logger: logging.Logger, thread_id: str, assistant_id: str, assistant_type: str
+    logger: logging.Logger,
+    thread_id: str,
+    assistant_id: str,
+    assistant_type: str,
+    instructions: str = None,
 ) -> str:
     try:
         queue = Queue()
         stream_thread = threading.Thread(
             target=handle_stream,
-            args=(logger, thread_id, assistant_id, assistant_type, queue),
+            args=(logger, thread_id, assistant_id, assistant_type, queue, instructions),
         )
         stream_thread.start()
         q = queue.get()
@@ -345,16 +353,27 @@ def resolve_ask_open_ai_handler(
         assistant_id = kwargs["assistant_id"]
         user_query = kwargs["user_query"]
         thread_id = kwargs.get("thread_id")
-        if thread_id is None:
-            thread = client.beta.threads.create()
-            thread_id = thread.id
+        message = {"role": "user", "content": user_query}
+        if kwargs.get("attachments"):
+            message["attachments"] = kwargs["attachments"]
 
-        client.beta.threads.messages.create(
-            thread_id=thread_id, role="user", content=user_query
-        )
+        if thread_id is None:
+            thread = client.beta.threads.create(
+                messages=[message],
+                tool_resources=kwargs.get("tool_resources"),
+                metadata=kwargs.get("thread_metadata", {}),
+            )
+            thread_id = thread.id
+        else:
+            message["thread_id"] = thread_id
+            client.beta.threads.messages.create(**message)
 
         current_run_id = get_current_run_id_and_start_async_task(
-            info.context.get("logger"), thread_id, assistant_id, assistant_type
+            info.context.get("logger"),
+            thread_id,
+            assistant_id,
+            assistant_type,
+            instructions=kwargs.get("instructions"),
         )
 
         return AskOpenAIType(
@@ -380,13 +399,52 @@ def get_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
 
 
 def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
+    _assistant = client.beta.assistants.retrieve(assistant_id)
     assistant = get_assistant(assistant_type, assistant_id)
     return {
         "assistant_type": assistant.assistant_type,
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
+        "description": _assistant.description,
+        "model": _assistant.model,
+        "instructions": _assistant.instructions,
+        "tools": _assistant.tools,
+        "tool_resources": _assistant.tool_resources,
+        "metadata": _assistant.metadata,
+        "temperature": _assistant.temperature,
+        "top_p": _assistant.top_p,
+        "response_format": (
+            _assistant.response_format
+            if isinstance(_assistant.response_format, str)
+            else _assistant.response_format["type"]
+        ),
         "functions": assistant.functions,
     }
+
+
+def get_assistant_range_key(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+    try:
+        assistant = client.beta.assistants.create(
+            name=kwargs["assistant_name"],
+            description=kwargs.get("description"),
+            model=kwargs["model"],
+            instructions=kwargs.get("instructions"),
+            tools=kwargs.get("tools", []),
+            tool_resources=kwargs.get("tool_resources"),
+            metadata=kwargs.get("metadata", {}),
+            temperature=kwargs.get("temperature"),
+            top_p=kwargs.get("top_p"),
+            response_format=(
+                kwargs.get("response_format", "auto")
+                if kwargs.get("response_format", "auto") == "auto"
+                else {"type": kwargs["response_format"]}
+            ),
+        )
+        return assistant.id
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
 
 
 def get_assistant_count(assistant_type: str, assistant_id: str) -> int:
@@ -396,7 +454,22 @@ def get_assistant_count(assistant_type: str, assistant_id: str) -> int:
 
 
 def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> AssistantType:
+    _assistant = client.beta.assistants.retrieve(assistant.assistant_id)
     assistant = assistant.__dict__["attribute_values"]
+    assistant["description"] = _assistant.description
+    assistant["model"] = _assistant.model
+    assistant["instructions"] = _assistant.instructions
+    assistant["tools"] = _assistant.tools
+    assistant["tool_resources"] = _assistant.tool_resources
+    assistant["metadata"] = _assistant.metadata
+    assistant["temperature"] = _assistant.temperature
+    assistant["top_p"] = _assistant.top_p
+    assistant["response_format"] = (
+        _assistant.response_format
+        if isinstance(_assistant.response_format, str)
+        else _assistant.response_format["type"]
+    )
+
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
 
 
@@ -440,7 +513,7 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
         "hash_key": "assistant_type",
         "range_key": "assistant_id",
     },
-    range_key_required=True,
+    range_key_funct=get_assistant_range_key,
     model_funct=get_assistant,
     count_funct=get_assistant_count,
     type_funct=get_assistant_type,
@@ -469,10 +542,37 @@ def insert_update_assistant_handler(
         AssistantModel.updated_by.set(kwargs.get("updated_by")),
         AssistantModel.updated_at.set(pendulum.now("UTC")),
     ]
+    updated_assistant_attributes = {"assistant_id": assistant_id}
+
     if kwargs.get("assistant_name") is not None:
+        updated_assistant_attributes["name"] = kwargs["assistant_name"]
         actions.append(AssistantModel.assistant_name.set(kwargs.get("assistant_name")))
+    if kwargs.get("description") is not None:
+        updated_assistant_attributes["description"] = kwargs["description"]
+    if kwargs.get("model") is not None:
+        updated_assistant_attributes["model"] = kwargs["model"]
+    if kwargs.get("instructions") is not None:
+        updated_assistant_attributes["instructions"] = kwargs["instructions"]
+    if kwargs.get("tools") is not None:
+        updated_assistant_attributes["tools"] = kwargs["tools"]
+    if kwargs.get("tool_resources") is not None:
+        updated_assistant_attributes["tool_resources"] = kwargs["tool_resources"]
+    if kwargs.get("metadata") is not None:
+        updated_assistant_attributes["metadata"] = kwargs["metadata"]
+    if kwargs.get("temperature") is not None:
+        updated_assistant_attributes["temperature"] = kwargs["temperature"]
+    if kwargs.get("top_p") is not None:
+        updated_assistant_attributes["top_p"] = kwargs["top_p"]
+    if kwargs.get("response_format") is not None:
+        updated_assistant_attributes["response_format"] = (
+            kwargs["response_format"]
+            if kwargs["response_format"] == "auto"
+            else {"type": kwargs["response_format"]}
+        )
     if kwargs.get("functions") is not None:
         actions.append(AssistantModel.functions.set(kwargs.get("functions")))
+
+    client.beta.assistants.update(**updated_assistant_attributes)
     assistant.update(actions=actions)
 
 
@@ -484,6 +584,7 @@ def insert_update_assistant_handler(
     model_funct=get_assistant,
 )
 def delete_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
+    client.beta.assistants.delete(kwargs.get("assistant_id"))
     kwargs.get("entity").delete()
     return True
 
