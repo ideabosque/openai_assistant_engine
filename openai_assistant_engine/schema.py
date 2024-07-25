@@ -13,8 +13,10 @@ from silvaengine_utility import JSON
 
 from .mutations import (
     DeleteAssistant,
+    DeleteFile,
     DeleteMessage,
     DeleteThread,
+    InsertFile,
     InsertUpdateAssistant,
     InsertUpdateMessage,
     InsertUpdateThread,
@@ -24,6 +26,8 @@ from .queries import (
     resolve_assistant,
     resolve_assistant_list,
     resolve_current_run,
+    resolve_file,
+    resolve_files,
     resolve_last_message,
     resolve_live_messages,
     resolve_message,
@@ -39,6 +43,7 @@ from .types import (
     LiveMessageType,
     MessageListType,
     MessageType,
+    OpenAIFileType,
     ThreadListType,
     ThreadType,
 )
@@ -48,6 +53,7 @@ def type_class():
     return [
         AskOpenAIType,
         LiveMessageType,
+        OpenAIFileType,
         CurrentRunType,
         AssistantType,
         AssistantListType,
@@ -81,6 +87,17 @@ class Query(ObjectType):
         thread_id=String(required=True),
         roles=List(String, required=False),
         order=String(required=False),
+    )
+
+    file = Field(
+        OpenAIFileType,
+        required=True,
+        file_id=String(required=True),
+    )
+
+    files = List(
+        OpenAIFileType,
+        purpose=String(),
     )
 
     last_message = Field(
@@ -159,6 +176,16 @@ class Query(ObjectType):
     ) -> Typing_List[LiveMessageType]:
         return resolve_live_messages(info, **kwargs)
 
+    def resolve_file(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> OpenAIFileType:
+        return resolve_file(info, **kwargs)
+
+    def resolve_files(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> Typing_List[OpenAIFileType]:
+        return resolve_files(info, **kwargs)
+
     def resolve_last_message(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
     ) -> LiveMessageType:
@@ -199,6 +226,8 @@ class Query(ObjectType):
 
 
 class Mutations(ObjectType):
+    insert_file = InsertFile.Field()
+    delete_file = DeleteFile.Field()
     insert_update_assistant = InsertUpdateAssistant.Field()
     delete_assistant = DeleteAssistant.Field()
     insert_update_thread = InsertUpdateThread.Field()

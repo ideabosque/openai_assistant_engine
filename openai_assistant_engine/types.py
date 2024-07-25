@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-from graphene import Boolean, DateTime, Float, List, ObjectType, String
+from graphene import Boolean, DateTime, Float, Int, List, ObjectType, String
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -30,6 +30,16 @@ class CurrentRunType(ObjectType):
     run_id = String()
     status = String()
     usage = JSON()
+
+
+class OpenAIFileType(ObjectType):
+    id = String()
+    object = String()
+    bytes = Int()
+    created_at = DateTime()
+    filename = String()
+    purpose = String()
+    encoded_content = String()
 
 
 class AssistantType(ObjectType):

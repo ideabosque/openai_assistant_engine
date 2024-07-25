@@ -13,6 +13,8 @@ from .handlers import (
     resolve_assistant_handler,
     resolve_assistant_list_handler,
     resolve_current_run_handler,
+    resolve_file_handler,
+    resolve_files_handler,
     resolve_last_message_handler,
     resolve_live_messages_handler,
     resolve_message_handler,
@@ -28,6 +30,7 @@ from .types import (
     LiveMessageType,
     MessageListType,
     MessageType,
+    OpenAIFileType,
     ThreadListType,
     ThreadType,
 )
@@ -41,6 +44,14 @@ def resolve_live_messages(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> List[LiveMessageType]:
     return resolve_live_messages_handler(info, **kwargs)
+
+
+def resolve_file(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
+    return resolve_file_handler(info, **kwargs)
+
+
+def resolve_files(info: ResolveInfo, **kwargs: Dict[str, Any]) -> List[OpenAIFileType]:
+    return resolve_files_handler(info, **kwargs)
 
 
 def resolve_last_message(

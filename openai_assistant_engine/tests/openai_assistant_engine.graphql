@@ -14,6 +14,15 @@ fragment LiveMessageInfo on LiveMessageType {
     createdAt
 }
 
+fragment OpenAIFileInfo on OpenAIFileType {
+    id
+    object
+    bytes
+    createdAt
+    filename
+    purpose
+}
+
 fragment CurrentRunInfo on CurrentRunType {
     threadId
     runId
@@ -158,6 +167,68 @@ query getCurrentRun(
         updatedBy: $updatedBy
     ){
         ...CurrentRunInfo
+    }
+}
+
+query getFile(
+    $fileId: String!
+) {
+    file(
+        fileId: $fileId
+    ) {
+        ...OpenAIFileInfo
+    }
+}
+
+query getFileContent(
+    $fileId: String!
+) {
+    file(
+        fileId: $fileId
+    ) {
+        id
+        object
+        bytes
+        createdAt
+        filename
+        purpose
+        encodedContent
+    }
+}
+
+query getFiles(
+    $purpose: String
+) {
+    files(
+        purpose: $purpose
+    ) {
+        ...OpenAIFileInfo
+    }
+}
+
+mutation insertFile(
+    $filename: String!,
+    $encodedContent: String!,
+    $purpose: String!
+) {
+    insertFile(
+        filename: $filename,
+        encodedContent: $encodedContent,
+        purpose: $purpose
+    ) {
+        file{
+            ...OpenAIFileInfo
+        }
+    }
+}
+
+mutation deleteFile(
+    $fileId: String!
+) {
+    deleteFile(
+        fileId: $fileId
+    ) {
+        ok
     }
 }
 
