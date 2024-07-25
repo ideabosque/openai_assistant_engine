@@ -12,13 +12,53 @@ from silvaengine_utility import JSON
 
 from .handlers import (
     delete_assistant_handler,
+    delete_file_handler,
     delete_message_handler,
     delete_thread_handler,
+    insert_file_handler,
     insert_update_assistant_handler,
     insert_update_message_handler,
     insert_update_thread_handler,
 )
-from .types import AssistantType, MessageType, ThreadType
+from .types import AssistantType, MessageType, OpenAIFileType, ThreadType
+
+
+class InsertFile(Mutation):
+    file = Field(OpenAIFileType)
+
+    class Arguments:
+        filename = String(required=True)
+        encoded_content = String(required=True)
+        purpose = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertFile":
+        try:
+            file = insert_file_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return InsertFile(file=file)
+
+
+class DeleteFile(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        file_id = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteFile":
+        try:
+            ok = delete_file_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return DeleteFile(ok=ok)
 
 
 class InsertUpdateAssistant(Mutation):

@@ -4,18 +4,24 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+import base64
 import functools
 import logging
 import threading
 import time
 import traceback
+from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
 import pendulum
 from graphene import ResolveInfo
+from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -23,8 +29,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import AssistantModel, MessageModel, ThreadModel
 from .types import (
@@ -35,6 +39,7 @@ from .types import (
     LiveMessageType,
     MessageListType,
     MessageType,
+    OpenAIFileType,
     ThreadListType,
     ThreadType,
 )
@@ -144,6 +149,31 @@ def assistant_decorator() -> Callable:
     return actual_decorator
 
 
+def extract_requested_fields(info):
+    # Accessing the field nodes to determine the requested fields
+    field_nodes = info.field_asts[0].selection_set.selections
+
+    # Function to recursively extract fields from fragments and selections
+    def extract_fields(selection_set):
+        fields = []
+        for selection in selection_set:
+            if type(selection).__name__ == "Field":
+                fields.append(selection.name.value)
+                if selection.selection_set:
+                    fields.extend(extract_fields(selection.selection_set.selections))
+            elif type(selection).__name__ == "FragmentSpread":
+                fragment = info.fragments[selection.name.value]
+                fields.extend(extract_fields(fragment.selection_set.selections))
+            elif type(selection).__name__ == "InlineFragment":
+                fields.extend(extract_fields(selection.selection_set.selections))
+            else:
+                continue
+        return fields
+
+    requested_fields = extract_fields(field_nodes)
+    return requested_fields
+
+
 class EventHandler(AssistantEventHandler):
     def __init__(
         self,
@@ -206,6 +236,75 @@ class EventHandler(AssistantEventHandler):
                 print()  # To move to the next line after completion
             else:
                 stream.until_done()
+
+
+def resolve_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
+    requested_fields = extract_requested_fields(info)
+
+    file = client.files.retrieve(kwargs["file_id"])
+    openai_file = {
+        "id": file.id,
+        "object": file.object,
+        "filename": file.filename,
+        "purpose": file.purpose,
+        "created_at": pendulum.from_timestamp(file.created_at, tz="UTC"),
+        "bytes": file.bytes,
+    }
+    if "encodedContent" in requested_fields:
+        response: Response = client.files.content(kwargs["file_id"])
+        content = response.content  # Get the actual bytes data)
+        # Convert the content to a Base64-encoded string
+        openai_file["encoded_content"] = base64.b64encode(content).decode("utf-8")
+
+    return OpenAIFileType(**openai_file)
+
+
+def resolve_files_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> List[OpenAIFileType]:
+    if kwargs.get("purpose"):
+        file_list = client.files.list(purpose=kwargs["purpose"])
+    else:
+        file_list = client.files.list()
+    return [
+        OpenAIFileType(
+            id=file.id,
+            object=file.object,
+            filename=file.filename,
+            purpose=file.purpose,
+            created_at=pendulum.from_timestamp(file.created_at, tz="UTC"),
+            bytes=file.bytes,
+        )
+        for file in file_list.data
+    ]
+
+
+def insert_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+    purpose = kwargs["purpose"]
+    encoded_content = kwargs["encoded_content"]
+    # Decode the Base64 string
+    decoded_content = base64.b64decode(encoded_content)
+
+    # Save the decoded content into a BytesIO object
+    content_io = BytesIO(decoded_content)
+
+    # Assign a filename to the BytesIO object
+    content_io.name = kwargs["filename"]
+
+    file = client.files.create(file=content_io, purpose=purpose)
+    return OpenAIFileType(
+        id=file.id,
+        object=file.object,
+        filename=file.filename,
+        purpose=file.purpose,
+        created_at=pendulum.from_timestamp(file.created_at, tz="UTC"),
+        bytes=file.bytes,
+    )
+
+
+def delete_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
+    result = client.files.delete(kwargs["file_id"])
+    return result.deleted
 
 
 def resolve_live_messages_handler(

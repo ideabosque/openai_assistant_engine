@@ -21,6 +21,7 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
+from silvaengine_utility import Utility
 
 load_dotenv()
 setting = {
@@ -354,6 +355,85 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_file(self):
+        # Path to the local file
+        file_path = "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine/openai_assistant_engine/tests/openai_assistant_engine.graphql"
+
+        # Extract the filename
+        filename = os.path.basename(file_path)
+
+        # Read the file and encode it in Base64
+        encoded_content = None
+        with open(file_path, "rb") as file:
+            file_content = file.read()
+            encoded_content = base64.b64encode(file_content).decode("utf-8")
+
+        variables = {
+            "filename": filename,
+            "encodedContent": encoded_content,
+            "purpose": "fine-tune",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertFile",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_file(self):
+        variables = {
+            "fileId": "file-pIgGUzBEPKX68tylWU3vZa8j",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteFile",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_file(self):
+        variables = {
+            "fileId": "file-vYF15hO1FJZNUNLtTcw4LEye",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFile",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_file_content(self):
+        variables = {
+            "fileId": "file-smYkW2yh3WbIpgg8ZvdJy0sK",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFileContent",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+        response = json.loads(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_files(self):
+        # variables = {"purpose": "assistants"}
+        variables = {}
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFiles",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_assistant(self):
         variables = {
             "assistantType": "conversation",
@@ -386,7 +466,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_assistant(self):
         variables = {
             "assistantType": "conversation",
