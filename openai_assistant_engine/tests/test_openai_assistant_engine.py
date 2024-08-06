@@ -21,6 +21,7 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
+
 from silvaengine_utility import Utility
 
 load_dotenv()
@@ -42,6 +43,7 @@ document = Path(
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
 sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
+sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
