@@ -21,7 +21,6 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
-
 from silvaengine_utility import Utility
 
 load_dotenv()
@@ -148,11 +147,12 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
-        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
@@ -409,7 +409,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_file_content(self):
         variables = {
             "fileId": "file-smYkW2yh3WbIpgg8ZvdJy0sK",
