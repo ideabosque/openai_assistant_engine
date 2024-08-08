@@ -880,14 +880,8 @@ This setup will allow the chatbot to interact with users, query an external Redi
 
 In this video demonstration, you will see both chatbot scripts in action:
 
-1. **Introduction**: The video begins with an introduction to the chatbots and a brief explanation of their functionalities.
-
-2. **Running the Text Input Script**: The presenter runs the text input script in a terminal, showcasing the initial greeting from the AI assistant and the text-based interaction.
-
-3. **Running the Voice Recognition Script**: The presenter runs the voice recognition script, demonstrating how to record a query using voice, how the input is processed, transcribed, and sent to the AI assistant. The AI assistant's response is then converted to speech and played back.
-
-4. **Result Presentation**: The video focuses on the smooth interaction between the user and the AI assistant, highlighting how the assistant fetches and returns information from the Redis vector search database.
-
-5. **Conclusion**: The video concludes with a summary of the chatbots' capabilities and potential applications.
-
 This demonstration will help you visualize the interaction process and understand how the chatbots handle user queries in real-time.
+
+![Chatbot demo in English](media/2024-08-08_13-01-58.mp4)
+
+![Chatbot demo in Chinese](media/2024-08-08_13-03-33.mp4)
