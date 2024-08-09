@@ -882,6 +882,6 @@ In this video demonstration, you will see both chatbot scripts in action:
 
 This demonstration will help you visualize the interaction process and understand how the chatbots handle user queries in real-time.
 
-![Chatbot demo in English](media/2024-08-08_13-01-58.mp4)
+![Chatbot demo in English](media/2024-08-08_16-31-43.mp4)
 
-![Chatbot demo in Chinese](media/2024-08-08_13-03-33.mp4)
+![Chatbot demo in Chinese](media/2024-08-09_11-18-04.mp4)
