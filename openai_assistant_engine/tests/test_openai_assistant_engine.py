@@ -152,8 +152,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
-        # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
-        assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
+        assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
+        # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
