@@ -48,7 +48,12 @@ sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
 
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(
+    stream=sys.stdout, 
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Specify the format for the log messages
+    datefmt='%Y-%m-%d %H:%M:%S',  # Specify the date format
+)
 logger = logging.getLogger()
 
 from openai_assistant_engine import OpenaiAssistantEngine
