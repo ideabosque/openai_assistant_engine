@@ -77,6 +77,7 @@ class InsertUpdateAssistant(Mutation):
         temperature = Float(required=False)
         top_p = Float(required=False)
         response_format = String(required=False)
+        configuration = JSON(required=True)
         functions = List(JSON, required=True)
         updated_by = String(required=True)
 

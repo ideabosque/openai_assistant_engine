@@ -74,12 +74,19 @@ def get_assistant_function(
             __import__(assistant_function["module_name"]),
             assistant_function["class_name"],
         )
+
+        configuration = (
+            assistant.configuration.__dict__["attribute_values"]
+            if assistant.__dict__["attribute_values"].get("configuration")
+            else {}
+        )
+        if assistant_function.get("configuration"):
+            configuration = dict(configuration, **assistant_function["configuration"])
+
         return getattr(
             assistant_function_class(
                 logger,
-                **Utility.json_loads(
-                    Utility.json_dumps(assistant_function["configuration"])
-                ),
+                **Utility.json_loads(Utility.json_dumps(configuration)),
             ),
             function_name,
         )
@@ -519,6 +526,7 @@ def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
             and _assistant.response_format == "auto"
             else _assistant.response_format.type
         ),
+        "configuration": assistant.configuration,
         "functions": assistant.functions,
     }
 
@@ -568,7 +576,7 @@ def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> Assistan
     assistant["response_format"] = (
         _assistant.response_format
         if isinstance(_assistant.response_format, str)
-        else _assistant.response_format["type"]
+        else _assistant.response_format.type
     )
 
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
@@ -622,16 +630,17 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
 def insert_update_assistant_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> None:
-    assistant_type = kwargs.get("assistant_type")
-    assistant_id = kwargs.get("assistant_id")
+    assistant_type = kwargs["assistant_type"]
+    assistant_id = kwargs["assistant_id"]
     if kwargs.get("entity") is None:
         AssistantModel(
             assistant_type,
             assistant_id,
             **{
-                "assistant_name": kwargs.get("assistant_name"),
-                "functions": kwargs.get("functions"),
-                "updated_by": kwargs.get("updated_by"),
+                "assistant_name": kwargs["assistant_name"],
+                "configuration": kwargs["configuration"],
+                "functions": kwargs["functions"],
+                "updated_by": kwargs["updated_by"],
                 "created_at": pendulum.now("UTC"),
                 "updated_at": pendulum.now("UTC"),
             },
@@ -670,6 +679,8 @@ def insert_update_assistant_handler(
             if kwargs["response_format"] == "auto"
             else {"type": kwargs["response_format"]}
         )
+    if kwargs.get("configuration") is not None:
+        actions.append(AssistantModel.configuration.set(kwargs.get("configuration")))
     if kwargs.get("functions") is not None:
         actions.append(AssistantModel.functions.set(kwargs.get("functions")))
 

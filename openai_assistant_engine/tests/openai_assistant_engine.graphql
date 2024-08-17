@@ -43,6 +43,7 @@ fragment AssistantInfo on AssistantType {
     responseFormat
     tools
     toolResources
+    configuration
     functions
     updatedBy
     createdAt
@@ -273,6 +274,7 @@ mutation insertUpdateAssistant(
     $temperature: Float,
     $topP: Float,
     $responseFormat: String,
+    $configuration: JSON!,
     $functions: [JSON]!,
     $updatedBy: String!
 ) {
@@ -289,6 +291,7 @@ mutation insertUpdateAssistant(
         temperature: $temperature,
         topP: $topP,
         responseFormat: $responseFormat,
+        configuration: $configuration,
         functions: $functions,
         updatedBy: $updatedBy
     ) {
