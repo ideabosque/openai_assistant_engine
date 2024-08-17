@@ -43,16 +43,17 @@ sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
 sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
 sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
+sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
 
 
 logging.basicConfig(
-    stream=sys.stdout, 
+    stream=sys.stdout,
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Specify the format for the log messages
-    datefmt='%Y-%m-%d %H:%M:%S',  # Specify the date format
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Specify the format for the log messages
+    datefmt="%Y-%m-%d %H:%M:%S",  # Specify the date format
 )
 logger = logging.getLogger()
 
@@ -157,8 +158,9 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
-        assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
+        # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
+        assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
@@ -445,10 +447,11 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_insert_update_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_GUaLtBy94VomdDCaTgpgMpcW",
+            "assistantId": "asst_rhGhCdlTpQNv3ClPqMIxP7kn",
             "assistantName": "Conversation ABC",
             "model": "gpt-4o-2024-05-13",
             "instructions": "You are a helpful assistant.",
+            "configuration": {"endpoint_id": "api"},
             "functions": {},
             "updatedBy": "user abc",
         }
@@ -464,7 +467,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_delete_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_GUaLtBy94VomdDCaTgpgMpcW",
+            "assistantId": "asst_rhGhCdlTpQNv3ClPqMIxP7kn",
         }
         payload = {
             "query": document,
@@ -491,8 +494,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_assistant_list(self):
         variables = {
-            "assistantType": "agent",
-            "assistantName": "Agent ABC",
+            "assistantType": "conversation",
+            # "assistantName": "Agent ABC",
             "pageNumber": 1,
             "limit": 100,
         }

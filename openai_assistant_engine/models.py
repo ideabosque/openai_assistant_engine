@@ -22,6 +22,7 @@ class AssistantModel(BaseModel):
     assistant_type = UnicodeAttribute(hash_key=True)
     assistant_id = UnicodeAttribute(range_key=True)
     assistant_name = UnicodeAttribute()
+    configuration = MapAttribute()
     functions = ListAttribute()
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()

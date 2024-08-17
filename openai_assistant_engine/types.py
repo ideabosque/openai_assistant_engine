@@ -55,6 +55,7 @@ class AssistantType(ObjectType):
     response_format = String()
     tools = List(JSON)
     tool_resources = JSON()
+    configuration = JSON()
     functions = List(JSON)
     updated_by = String()
     created_at = DateTime()
