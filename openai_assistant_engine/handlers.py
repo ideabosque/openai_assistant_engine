@@ -524,7 +524,11 @@ def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
             _assistant.response_format
             if isinstance(_assistant.response_format, str)
             and _assistant.response_format == "auto"
-            else _assistant.response_format.type
+            else (
+                _assistant.response_format["type"]
+                if isinstance(_assistant.response_format, dict)
+                else _assistant.response_format.type
+            )
         ),
         "configuration": assistant.configuration,
         "functions": assistant.functions,
