@@ -157,10 +157,11 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
+        # print("Hello! I am an AI assistant. Please provide your detail location?")
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
         # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
-        # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
-        assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
+        assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
+        # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
