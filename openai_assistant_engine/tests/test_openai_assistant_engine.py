@@ -159,8 +159,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         print("Hello! I am an AI assistant. How can I help you today?")
         # print("Hello! I am an AI assistant. Please provide your detail location?")
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
-        # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
-        assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
+        assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
+        # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
         # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
         thread_id = None
         while True:
@@ -185,7 +185,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             response = json.loads(
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
-            # logger.info(response)
+            logger.info(response)
             thread_id = response["data"]["askOpenAi"]["threadId"]
             current_run_id = response["data"]["askOpenAi"]["currentRunId"]
 
@@ -203,7 +203,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 response = json.loads(
                     self.openai_assistant_engine.open_assistant_graphql(**payload)
                 )
-                # logger.info(response)
+                logger.info(response)
                 if response["data"]["currentRun"]["status"] == "completed":
                     break
 
@@ -217,7 +217,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             response = json.loads(
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
-            # logger.info(response)
+            logger.info(response)
             last_message = response["data"]["lastMessage"]["message"]
 
             print(
