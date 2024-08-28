@@ -95,6 +95,46 @@ fragment MessageListInfo on MessageListType {
     total
 }
 
+fragment ToolCallInfo on ToolCallType {
+    runId
+    toolCallId
+    toolType
+    name
+    arguments
+    content
+    createdAt
+}
+
+fragment ToolCallListInfo on ToolCallListType {
+    toolCallList{
+        ...ToolCallInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
+fragment FineTuningMessageInfo on FineTuningMessageType {
+    model
+    timestamp
+    assistant
+    role
+    toolCalls
+    toolCallId
+    content
+    weight
+    trained
+}
+
+fragment FineTuningMessageListInfo on FineTuningMessageListType {
+    fineTuningMessageList{
+        ...FineTuningMessageInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
 query ping {
     ping
 }
@@ -432,6 +472,146 @@ mutation deleteMessage(
     deleteMessage(
         threadId: $threadId,
         messageId: $messageId
+    ) {
+        ok
+    }
+}
+
+query getToolCall(
+    $runId: String!,
+    $toolCallId: String!
+) {
+    toolCall(
+        runId: $runId,
+        toolCallId: $toolCallId
+    ) {
+        ...ToolCallInfo
+    }
+}
+
+query getToolCallList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $runId: String,
+    $toolTypes: [String],
+    $name: String
+) {
+    toolCallList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        runId: $runId,
+        toolTypes: $toolTypes,
+        name: $name
+    ) {
+        ...ToolCallListInfo
+    }
+}
+
+mutation insertUpdateToolCall(
+    $runId: String!,
+    $toolCallId: String!,
+    $toolType: String!,
+    $name: String!,
+    $arguments: JSON!,
+    $content: String,
+    $createdAt: DateTime!
+) {
+    insertUpdateToolCall(
+        runId: $runId,
+        toolCallId: $toolCallId,
+        toolType: $toolType,
+        name: $name,
+        arguments: $arguments,
+        content: $content,
+        createdAt: $createdAt
+    ) {
+        toolCall{
+            ...ToolCallInfo
+        }
+    }
+}
+
+mutation deleteToolCall(
+    $runId: String!,
+    $toolCallId: String!
+) {
+    deleteToolCall(
+        runId: $runId,
+        toolCallId: $toolCallId
+    ) {
+        ok
+    }
+}
+
+query getFineTuningMessage(
+    $model: String!,
+    $timestamp: String!
+) {
+    fineTuningMessage(
+        model: $model,
+        timestamp: $timestamp
+    ) {
+        ...FineTuningMessageInfo
+    }
+}
+
+query getFineTuningMessageList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $model: String,
+    $assistantId: String,
+    $roles: [String],
+    $trained: Boolean
+) {
+    fineTuningMessageList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        model: $model,
+        assistantId: $assistantId,
+        roles: $roles,
+        trained: $trained
+    ) {
+        ...FineTuningMessageListInfo
+    }
+}
+
+mutation insertUpdateFineTuningMessage(
+    $model: String!,
+    $timestamp: String!,
+    $assistantId: String!,
+    $assistantType: String!,
+    $role: String!,
+    $toolCalls: [JSON],
+    $toolCallId: String,
+    $content: String,
+    $weight: Float,
+    $trained: Boolean
+) {
+    insertUpdateFineTuningMessage(
+        model: $model,
+        timestamp: $timestamp,
+        assistantId: $assistantId,
+        assistantType: $assistantType,
+        role: $role,
+        toolCalls: $toolCalls,
+        toolCallId: $toolCallId,
+        content: $content,
+        weight: $weight,
+        trained: $trained
+    ) {
+        fineTuningMessage{
+            ...FineTuningMessageInfo
+        }
+    }
+}
+
+mutation deleteFineTuningMessage(
+    $model: String!,
+    $timestamp: String!
+) {
+    deleteFineTuningMessage(
+        model: $model,
+        timestamp: $timestamp
     ) {
         ok
     }

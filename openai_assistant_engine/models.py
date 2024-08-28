@@ -8,10 +8,11 @@ from pynamodb.attributes import (
     BooleanAttribute,
     ListAttribute,
     MapAttribute,
+    NumberAttribute,
     UnicodeAttribute,
     UTCDateTimeAttribute,
 )
-
+from pynamodb.indexes import AllProjection, LocalSecondaryIndex
 from silvaengine_dynamodb_base import BaseModel
 
 
@@ -52,3 +53,48 @@ class MessageModel(BaseModel):
     role = UnicodeAttribute()
     message = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
+
+
+class ToolCallModel(BaseModel):
+    class Meta(BaseModel.Meta):
+        table_name = "oae-tool_calls"
+
+    run_id = UnicodeAttribute(hash_key=True)
+    tool_call_id = UnicodeAttribute(range_key=True)
+    tool_type = UnicodeAttribute()
+    name = UnicodeAttribute()
+    arguments = MapAttribute()
+    content = UnicodeAttribute(null=True)
+    created_at = UTCDateTimeAttribute()
+
+
+class AssistantIdIndex(LocalSecondaryIndex):
+    """
+    This class represents a local secondary index
+    """
+
+    class Meta:
+        billing_mode = "PAY_PER_REQUEST"
+        # All attributes are projected
+        projection = AllProjection()
+        index_name = "assistant_id-index"
+
+    model = UnicodeAttribute(hash_key=True)
+    assistant_id = UTCDateTimeAttribute(range_key=True)
+
+
+class FineTuningMessageModel(BaseModel):
+    class Meta(BaseModel.Meta):
+        table_name = "oae-fine_tuning_messages"
+
+    model = UnicodeAttribute(hash_key=True)
+    timestamp = UnicodeAttribute(range_key=True)
+    assistant_id = UnicodeAttribute()
+    assistant_type = UnicodeAttribute()
+    role = UnicodeAttribute()
+    tool_calls = ListAttribute(of=MapAttribute, null=True)
+    tool_call_id = UnicodeAttribute(null=True)
+    content = UnicodeAttribute(null=True)
+    weight = NumberAttribute(null=True)
+    trained = BooleanAttribute(default=False)
+    assistant_id_index = AssistantIdIndex()

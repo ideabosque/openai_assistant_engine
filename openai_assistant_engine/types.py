@@ -80,6 +80,28 @@ class MessageType(ObjectType):
     created_at = DateTime()
 
 
+class ToolCallType(ObjectType):
+    run_id = String()
+    tool_call_id = String()
+    tool_type = String()
+    name = String()
+    arguments = JSON()
+    content = String()
+    created_at = DateTime()
+
+
+class FineTuningMessageType(ObjectType):
+    model = String()
+    timestamp = String()
+    assistant = JSON()
+    role = String()
+    tool_calls = List(JSON)
+    tool_call_id = String()
+    content = String()
+    weight = Float()
+    trained = Boolean()
+
+
 class AssistantListType(ListObjectType):
     assistant_list = List(AssistantType)
 
@@ -90,3 +112,11 @@ class ThreadListType(ListObjectType):
 
 class MessageListType(ListObjectType):
     message_list = List(MessageType)
+
+
+class ToolCallListType(ListObjectType):
+    tool_call_list = List(ToolCallType)
+
+
+class FineTuningMessageListType(ListObjectType):
+    fine_tuning_message_list = List(FineTuningMessageType)

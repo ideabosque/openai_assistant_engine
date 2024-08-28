@@ -15,24 +15,32 @@ from .handlers import (
     resolve_current_run_handler,
     resolve_file_handler,
     resolve_files_handler,
+    resolve_fine_tuning_message_handler,
+    resolve_fine_tuning_message_list_handler,
     resolve_last_message_handler,
     resolve_live_messages_handler,
     resolve_message_handler,
     resolve_message_list_handler,
     resolve_thread_handler,
     resolve_thread_list_handler,
+    resolve_tool_call_handler,
+    resolve_tool_call_list_handler,
 )
 from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
     CurrentRunType,
+    FineTuningMessageListType,
+    FineTuningMessageType,
     LiveMessageType,
     MessageListType,
     MessageType,
     OpenAIFileType,
     ThreadListType,
     ThreadType,
+    ToolCallListType,
+    ToolCallType,
 )
 
 
@@ -96,3 +104,25 @@ def resolve_message_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> MessageListType:
     return resolve_message_list_handler(info, **kwargs)
+
+
+def resolve_tool_call(info: ResolveInfo, **kwargs: Dict[str, Any]) -> ToolCallType:
+    return resolve_tool_call_handler(info, **kwargs)
+
+
+def resolve_tool_call_list(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> ToolCallListType:
+    return resolve_tool_call_list_handler(info, **kwargs)
+
+
+def resolve_fine_tuning_message(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> FineTuningMessageType:
+    return resolve_fine_tuning_message_handler(info, **kwargs)
+
+
+def resolve_fine_tuning_message_list(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> FineTuningMessageListType:
+    return resolve_fine_tuning_message_list_handler(info, **kwargs)

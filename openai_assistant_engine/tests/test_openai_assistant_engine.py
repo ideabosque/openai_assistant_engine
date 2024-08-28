@@ -44,6 +44,7 @@ sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
 sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
 sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
 sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
+sys.path.insert(5, "C:/Users/bibo7/gitrepo/silvaengine/price_inquiry_funct")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
@@ -153,15 +154,16 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # print("Hello! I am an AI assistant. Please provide your detail location?")
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
-        assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
+        # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
         # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
+        assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
@@ -628,6 +630,140 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "query": document,
             "variables": variables,
             "operation_name": "getMessageList",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_tool_call(self):
+        variables = {
+            "runId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "toolCallId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "toolType": "code_interpreter",
+            "name": "my_tool",
+            "arguments": {"input": "print('Hello, World!')"},
+            "content": "print('Hello, World!')",
+            "createdAt": "2024-05-13T23:23:32.000000+0000",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateToolCall",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_tool_call(self):
+        variables = {
+            "runId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "toolCallId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteToolCall",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_tool_call(self):
+        variables = {
+            "runId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "toolCallId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getToolCall",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_tool_call_list(self):
+        variables = {
+            "runId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "toolTypes": ["code_interpreter"],
+            "pageNumber": 1,
+            "limit": 100,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getToolCallList",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_fine_tuning_message(self):
+        variables = {
+            "model": "gpt-4o-2024-05-13",
+            "timestamp": "2024-05-13T23:23:32.000000+0000",
+            "assistantId": "asst_0tCDxNsScVvEVekbjSqxBThi",
+            "assistantType": "conversation",
+            "role": "assistant",
+            "toolCalls": [
+                {
+                    "toolType": "code_interpreter",
+                    "name": "my_tool",
+                    "arguments": {"input": "print('Hello, World!')"},
+                }
+            ],
+            "toolCallId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "content": "print('Hello, World!')",
+            "weight": 1.0,
+            "trained": True,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateFineTuningMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_fine_tuning_message(self):
+        variables = {
+            "model": "gpt-4o-2024-05-13",
+            "timestamp": "2024-05-13T23:23:32.000000+0000",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "deleteFineTuningMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_fine_tuning_message(self):
+        variables = {
+            "model": "gpt-4o-2024-05-13",
+            "timestamp": "2024-05-13T23:23:32.000000+0000",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFineTuningMessage",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_fine_tuning_message_list(self):
+        variables = {
+            "model": "gpt-4o-2024-05-13",
+            "pageNumber": 1,
+            "limit": 100,
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFineTuningMessageList",
         }
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
