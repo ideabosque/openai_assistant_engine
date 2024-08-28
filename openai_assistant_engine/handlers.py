@@ -29,18 +29,28 @@ from silvaengine_utility import Utility
 from tenacity import retry, stop_after_attempt, wait_exponential
 from typing_extensions import override
 
-from .models import AssistantModel, MessageModel, ThreadModel
+from .models import (
+    AssistantModel,
+    FineTuningMessageModel,
+    MessageModel,
+    ThreadModel,
+    ToolCallModel,
+)
 from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
     CurrentRunType,
+    FineTuningMessageListType,
+    FineTuningMessageType,
     LiveMessageType,
     MessageListType,
     MessageType,
     OpenAIFileType,
     ThreadListType,
     ThreadType,
+    ToolCallListType,
+    ToolCallType,
 )
 
 client = None
@@ -215,10 +225,23 @@ class EventHandler(AssistantEventHandler):
             ), f"The function ({tool.function.name}) is not supported!!!"
 
             arguments = Utility.json_loads(tool.function.arguments)
+            output = assistant_function(**arguments)
+
+            tool_call = ToolCallModel(data.id, tool.id)
+            tool_call.tool_type = "function"
+            tool_call.name = tool.function.name
+            tool_call.arguments = Utility.json_loads(
+                Utility.json_dumps(arguments), parser_number=False
+            )
+            if output is not None:
+                tool_call.content = Utility.json_dumps(output)
+            tool_call.created_at = pendulum.from_timestamp(data.started_at, tz="UTC")
+            tool_call.save()
+
             tool_outputs.append(
                 {
                     "tool_call_id": tool.id,
-                    "output": Utility.json_dumps(assistant_function(**arguments)),
+                    "output": Utility.json_dumps(output),
                 }
             )
         self.submit_tool_outputs(tool_outputs)
@@ -936,5 +959,261 @@ def insert_update_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     model_funct=get_message,
 )
 def delete_message_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
+    kwargs.get("entity").delete()
+    return True
+
+
+@retry(
+    reraise=True,
+    wait=wait_exponential(multiplier=1, max=60),
+    stop=stop_after_attempt(5),
+)
+def get_tool_call(run_id: str, tool_call_id: str) -> ToolCallModel:
+    return ToolCallModel.get(run_id, tool_call_id)
+
+
+def get_tool_call_count(run_id: str, tool_call_id: str) -> int:
+    return ToolCallModel.count(run_id, ToolCallModel.tool_call_id == tool_call_id)
+
+
+def get_tool_call_type(info: ResolveInfo, tool_call: ToolCallModel) -> ToolCallType:
+    return ToolCallType(**Utility.json_loads(Utility.json_dumps(tool_call)))
+
+
+def resolve_tool_call_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> ToolCallType:
+    return get_tool_call_type(
+        info,
+        get_tool_call(kwargs.get("run_id"), kwargs.get("tool_call_id")),
+    )
+
+
+@monitor_decorator
+@resolve_list_decorator(
+    attributes_to_get=["run_id", "tool_call_id"],
+    list_type_class=ToolCallListType,
+    type_funct=get_tool_call_type,
+)
+def resolve_tool_call_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    run_id = kwargs.get("run_id")
+    tool_types = kwargs.get("tool_types")
+    name = kwargs.get("name")
+
+    args = []
+    inquiry_funct = ToolCallModel.scan
+    count_funct = ToolCallModel.count
+    if run_id:
+        args = [run_id, None]
+        inquiry_funct = ToolCallModel.query
+
+    the_filters = None
+    if tool_types:
+        the_filters &= ToolCallModel.tool_type.is_in(*tool_types)
+    if name:
+        the_filters &= ToolCallModel.name.contains(name)
+    if the_filters is not None:
+        args.append(the_filters)
+
+    return inquiry_funct, count_funct, args
+
+
+@insert_update_decorator(
+    keys={
+        "hash_key": "run_id",
+        "range_key": "tool_call_id",
+    },
+    range_key_required=True,
+    model_funct=get_tool_call,
+    count_funct=get_tool_call_count,
+    type_funct=get_tool_call_type,
+)
+def insert_update_tool_call_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> None:
+    run_id = kwargs["run_id"]
+    tool_call_id = kwargs["tool_call_id"]
+    if kwargs.get("entity") is None:
+        ToolCallModel(
+            run_id,
+            tool_call_id,
+            **{
+                "tool_type": kwargs["tool_type"],
+                "name": kwargs["name"],
+                "arguments": kwargs["arguments"],
+                "content": kwargs["content"],
+                "created_at": kwargs["created_at"],
+            },
+        ).save()
+        return
+
+    tool_call = kwargs.get("entity")
+    actions = []
+    if kwargs.get("tool_type") is not None:
+        actions.append(ToolCallModel.tool_type.set(kwargs["tool_type"]))
+    if kwargs.get("name") is not None:
+        actions.append(ToolCallModel.name.set(kwargs["name"]))
+    if kwargs.get("arguments") is not None:
+        actions.append(ToolCallModel.arguments.set(kwargs["arguments"]))
+    if kwargs.get("content") is not None:
+        actions.append(ToolCallModel.content.set(kwargs["content"]))
+    tool_call.update(actions=actions)
+
+
+@delete_decorator(
+    keys={
+        "hash_key": "run_id",
+        "range_key": "tool_call_id",
+    },
+    model_funct=get_tool_call,
+)
+def delete_tool_call_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
+    kwargs.get("entity").delete()
+    return True
+
+
+@retry(
+    reraise=True,
+    wait=wait_exponential(multiplier=1, max=60),
+    stop=stop_after_attempt(5),
+)
+def get_fine_tuning_message(model: str, timestamp: str) -> FineTuningMessageModel:
+    return FineTuningMessageModel.get(model, timestamp)
+
+
+def get_fine_tuning_message_count(model: str, timestamp: str) -> int:
+    return FineTuningMessageModel.count(
+        model, FineTuningMessageModel.timestamp == timestamp
+    )
+
+
+def get_fine_tuning_message_type(
+    info: ResolveInfo, fine_tuning_message: FineTuningMessageModel
+) -> FineTuningMessageType:
+    try:
+        assistant = _get_assistant(
+            fine_tuning_message.assistant_type, fine_tuning_message.assistant_id
+        )
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").exception(log)
+        raise e
+    fine_tuning_message = fine_tuning_message.__dict__["attribute_values"]
+    fine_tuning_message["assistant"] = assistant
+    fine_tuning_message.pop("assistant_type")
+    fine_tuning_message.pop("assistant_id")
+    return FineTuningMessageType(
+        **Utility.json_loads(Utility.json_dumps(fine_tuning_message))
+    )
+
+
+def resolve_fine_tuning_message_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> FineTuningMessageType:
+    return get_fine_tuning_message_type(
+        info,
+        get_fine_tuning_message(kwargs.get("model"), kwargs.get("timestamp")),
+    )
+
+
+@monitor_decorator
+@resolve_list_decorator(
+    attributes_to_get=["model", "assistant_id", "timestamp"],
+    list_type_class=FineTuningMessageListType,
+    type_funct=get_fine_tuning_message_type,
+)
+def resolve_fine_tuning_message_list_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> Any:
+    model = kwargs.get("model")
+    assistant_id = kwargs.get("assistant_id")
+    roles = kwargs.get("roles")
+    trained = kwargs.get("trained")
+
+    args = []
+    inquiry_funct = FineTuningMessageModel.scan
+    count_funct = FineTuningMessageModel.count
+    if model:
+        args = [model, None]
+        inquiry_funct = FineTuningMessageModel.query
+        if assistant_id:
+            inquiry_funct = FineTuningMessageModel.assistant_id_index.query
+            args[1] = FineTuningMessageModel.assistant_id == assistant_id
+            count_funct = FineTuningMessageModel.assistant_id_index.count
+
+    the_filters = None
+    if roles:
+        the_filters &= FineTuningMessageModel.role.is_in(*roles)
+    if trained is not None:
+        the_filters &= FineTuningMessageModel.trained == trained
+    if the_filters is not None:
+        args.append(the_filters)
+
+    return inquiry_funct, count_funct, args
+
+
+@insert_update_decorator(
+    keys={
+        "hash_key": "model",
+        "range_key": "timestamp",
+    },
+    range_key_required=True,
+    model_funct=get_fine_tuning_message,
+    count_funct=get_fine_tuning_message_count,
+    type_funct=get_fine_tuning_message_type,
+)
+def insert_update_fine_tuning_message_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> None:
+    model = kwargs["model"]
+    timestamp = kwargs["timestamp"]
+    cols = {
+        "assistant_id": kwargs["assistant_id"],
+        "assistant_type": kwargs["assistant_type"],
+        "role": kwargs["role"],
+    }
+    if kwargs.get("tool_calls") is not None:
+        cols["tool_calls"] = kwargs["tool_calls"]
+    if kwargs.get("tool_call_id") is not None:
+        cols["tool_call_id"] = kwargs["tool_call_id"]
+    if kwargs.get("content") is not None:
+        cols["content"] = kwargs["content"]
+    if kwargs.get("weight") is not None:
+        cols["weight"] = kwargs["weight"]
+    if kwargs.get("trained") is not None:
+        cols["trained"] = kwargs["trained"]
+    if kwargs.get("entity") is None:
+        FineTuningMessageModel(
+            model,
+            timestamp,
+            **cols,
+        ).save()
+        return
+
+    fine_tuning_message = kwargs.get("entity")
+    actions = []
+    if kwargs.get("tool_calls") is not None:
+        actions.append(FineTuningMessageModel.tool_calls.set(kwargs["tool_calls"]))
+    if kwargs.get("tool_call_id") is not None:
+        actions.append(FineTuningMessageModel.tool_call_id.set(kwargs["tool_call_id"]))
+    if kwargs.get("content") is not None:
+        actions.append(FineTuningMessageModel.content.set(kwargs["content"]))
+    if kwargs.get("weight") is not None:
+        actions.append(FineTuningMessageModel.weight.set(kwargs["weight"]))
+    if kwargs.get("trained") is not None:
+        actions.append(FineTuningMessageModel.trained.set(kwargs["trained"]))
+    fine_tuning_message.update(actions=actions)
+
+
+@delete_decorator(
+    keys={
+        "hash_key": "model",
+        "range_key": "timestamp",
+    },
+    model_funct=get_fine_tuning_message,
+)
+def delete_fine_tuning_message_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> bool:
     kwargs.get("entity").delete()
     return True

@@ -8,18 +8,22 @@ import time
 from typing import Any, Dict
 from typing import List as Typing_List
 
-from graphene import Field, Int, List, ObjectType, ResolveInfo, String
+from graphene import Boolean, Field, Int, List, ObjectType, ResolveInfo, String
 from silvaengine_utility import JSON
 
 from .mutations import (
     DeleteAssistant,
     DeleteFile,
+    DeleteFineTuningMessage,
     DeleteMessage,
     DeleteThread,
+    DeleteToolCall,
     InsertFile,
     InsertUpdateAssistant,
+    InsertUpdateFineTuningMessage,
     InsertUpdateMessage,
     InsertUpdateThread,
+    InsertUpdateToolCall,
 )
 from .queries import (
     resolve_ask_open_ai,
@@ -28,24 +32,32 @@ from .queries import (
     resolve_current_run,
     resolve_file,
     resolve_files,
+    resolve_fine_tuning_message,
+    resolve_fine_tuning_message_list,
     resolve_last_message,
     resolve_live_messages,
     resolve_message,
     resolve_message_list,
     resolve_thread,
     resolve_thread_list,
+    resolve_tool_call,
+    resolve_tool_call_list,
 )
 from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
     CurrentRunType,
+    FineTuningMessageListType,
+    FineTuningMessageType,
     LiveMessageType,
     MessageListType,
     MessageType,
     OpenAIFileType,
     ThreadListType,
     ThreadType,
+    ToolCallListType,
+    ToolCallType,
 )
 
 
@@ -61,6 +73,10 @@ def type_class():
         ThreadListType,
         MessageType,
         MessageListType,
+        ToolCallType,
+        ToolCallListType,
+        FineTuningMessageType,
+        FineTuningMessageListType,
     ]
 
 
@@ -163,6 +179,39 @@ class Query(ObjectType):
         message=String(),
     )
 
+    tool_call = Field(
+        ToolCallType,
+        required=True,
+        run_id=String(required=True),
+        tool_call_id=String(required=True),
+    )
+
+    tool_call_list = Field(
+        ToolCallListType,
+        page_number=Int(),
+        limit=Int(),
+        run_id=String(),
+        tool_types=List(String),
+        name=String(),
+    )
+
+    fine_tuning_message = Field(
+        FineTuningMessageType,
+        required=True,
+        model=String(required=True),
+        timestamp=String(required=True),
+    )
+
+    fine_tuning_message_list = Field(
+        FineTuningMessageListType,
+        page_number=Int(),
+        limit=Int(),
+        model=String(),
+        assistant_id=String(),
+        roles=List(String),
+        trained=Boolean(),
+    )
+
     def resolve_ping(self, info: ResolveInfo) -> str:
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -224,6 +273,26 @@ class Query(ObjectType):
     ) -> MessageListType:
         return resolve_message_list(info, **kwargs)
 
+    def resolve_tool_call(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> ToolCallType:
+        return resolve_tool_call(info, **kwargs)
+
+    def resolve_tool_call_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> ToolCallListType:
+        return resolve_tool_call_list(info, **kwargs)
+
+    def resolve_fine_tuning_message(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> FineTuningMessageType:
+        return resolve_fine_tuning_message(info, **kwargs)
+
+    def resolve_fine_tuning_message_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> FineTuningMessageListType:
+        return resolve_fine_tuning_message_list(info, **kwargs)
+
 
 class Mutations(ObjectType):
     insert_file = InsertFile.Field()
@@ -234,3 +303,7 @@ class Mutations(ObjectType):
     delete_thread = DeleteThread.Field()
     insert_update_message = InsertUpdateMessage.Field()
     delete_message = DeleteMessage.Field()
+    insert_update_tool_call = InsertUpdateToolCall.Field()
+    delete_tool_call = DeleteToolCall.Field()
+    insert_update_fine_tuning_message = InsertUpdateFineTuningMessage.Field()
+    delete_fine_tuning_message = DeleteFineTuningMessage.Field()
