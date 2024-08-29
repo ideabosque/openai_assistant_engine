@@ -437,7 +437,7 @@ def resolve_last_message_handler(
         raise e
 
 
-def handle_openai_assistant_stream(
+def async_openai_assistant_stream(
     info: ResolveInfo,
     queue: Queue,
     arguments: Dict[str, Any],
@@ -461,7 +461,7 @@ def get_current_run_id_and_start_async_task(
     try:
         queue = Queue()
         stream_thread = threading.Thread(
-            target=handle_openai_assistant_stream,
+            target=async_openai_assistant_stream,
             args=(info, queue, arguments),
         )
         stream_thread.start()
