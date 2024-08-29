@@ -114,3 +114,17 @@ class FineTuningMessageModel(BaseModel):
     trained = BooleanAttribute(default=False)
     thread_id_index = ThreadIdIndex()
     timestamp_index = TimestampIndex()
+
+
+class AsyncTaskModel(BaseModel):
+    class Meta(BaseModel.Meta):
+        table_name = "oae-async_tasks"
+
+    function_name = UnicodeAttribute(hash_key=True)
+    task_uuid = UnicodeAttribute(range_key=True)
+    task_arguments = MapAttribute()
+    task_status = UnicodeAttribute()
+    task_result = UnicodeAttribute(null=True)
+    task_log = UnicodeAttribute(null=True)
+    created_at = UTCDateTimeAttribute()
+    updated_at = UTCDateTimeAttribute()
