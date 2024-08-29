@@ -123,7 +123,7 @@ class AsyncTaskModel(BaseModel):
     function_name = UnicodeAttribute(hash_key=True)
     task_uuid = UnicodeAttribute(range_key=True)
     arguments = MapAttribute()
-    status = UnicodeAttribute()
+    status = UnicodeAttribute(default="in_progress")
     results = MapAttribute(null=True)
     log = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()

@@ -12,6 +12,8 @@ from .handlers import (
     resolve_ask_open_ai_handler,
     resolve_assistant_handler,
     resolve_assistant_list_handler,
+    resolve_async_task_handler,
+    resolve_async_task_list_handler,
     resolve_current_run_handler,
     resolve_file_handler,
     resolve_files_handler,
@@ -30,6 +32,8 @@ from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
+    AsyncTaskListType,
+    AsyncTaskType,
     CurrentRunType,
     FineTuningMessageListType,
     FineTuningMessageType,
@@ -126,3 +130,13 @@ def resolve_fine_tuning_message_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> FineTuningMessageListType:
     return resolve_fine_tuning_message_list_handler(info, **kwargs)
+
+
+def resolve_async_task(info: ResolveInfo, **kwargs: Dict[str, Any]) -> AsyncTaskType:
+    return resolve_async_task_handler(info, **kwargs)
+
+
+def resolve_async_task_list(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> AsyncTaskListType:
+    return resolve_async_task_list_handler(info, **kwargs)

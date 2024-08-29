@@ -135,6 +135,26 @@ fragment FineTuningMessageListInfo on FineTuningMessageListType {
     total
 }
 
+fragment AsyncTaskInfo on AsyncTaskType {
+    functionName
+    taskUuid
+    arguments
+    status
+    results
+    log
+    createdAt
+    updatedAt
+}
+
+fragment AsyncTaskListInfo on AsyncTaskListType {
+    asyncTaskList{
+        ...AsyncTaskInfo
+    }
+    pageSize
+    pageNumber
+    total
+}
+
 query ping {
     ping
 }
@@ -634,6 +654,68 @@ mutation deleteFineTuningMessage(
     deleteFineTuningMessage(
         assistantId: $assistantId,
         messageUuid: $messageUuid
+    ) {
+        ok
+    }
+}
+
+query getAsyncTask(
+    $functionName: String!,
+    $taskUuid: String!
+) {
+    asyncTask(
+        functionName: $functionName,
+        taskUuid: $taskUuid
+    ) {
+        ...AsyncTaskInfo
+    }
+}
+
+query getAsyncTaskList(
+    $pageNumber: Int, 
+    $limit: Int,
+    $functionName: String,
+    $statuses: [String]
+) {
+    asyncTaskList(
+        pageNumber: $pageNumber,
+        limit: $limit,
+        functionName: $functionName,
+        statuses: $statuses
+    ) {
+        ...AsyncTaskListInfo
+    }
+}
+
+mutation insertUpdateAsyncTask(
+    $functionName: String!,
+    $taskUuid: String,
+    $arguments: JSON,
+    $status: String,
+    $results: JSON,
+    $log: String
+) {
+    insertUpdateAsyncTask(
+        functionName: $functionName,
+        taskUuid: $taskUuid,
+        arguments: $arguments,
+        status: $status,
+        results: $results,
+        log: $log
+    ) {
+        asyncTask{
+            ...AsyncTaskInfo
+        }
+    }
+}
+
+mutation deleteAsyncTask(
+    $functionName: String!,
+    $taskUuid: String!
+) {
+    deleteAsyncTask(
+        functionName: $functionName,
+        taskUuid: $taskUuid
     ) {
         ok
     }

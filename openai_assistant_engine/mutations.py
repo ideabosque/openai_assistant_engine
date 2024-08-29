@@ -12,6 +12,7 @@ from silvaengine_utility import JSON
 
 from .handlers import (
     delete_assistant_handler,
+    delete_async_task_handler,
     delete_file_handler,
     delete_fine_tuning_message_handler,
     delete_message_handler,
@@ -19,6 +20,7 @@ from .handlers import (
     delete_tool_call_handler,
     insert_file_handler,
     insert_update_assistant_handler,
+    insert_update_async_task_handler,
     insert_update_fine_tuning_message_handler,
     insert_update_fine_tuning_messages_handler,
     insert_update_message_handler,
@@ -27,6 +29,7 @@ from .handlers import (
 )
 from .types import (
     AssistantType,
+    AsyncTaskType,
     FineTuningMessageType,
     MessageType,
     OpenAIFileType,
@@ -329,3 +332,47 @@ class DeleteFineTuningMessage(Mutation):
             raise e
 
         return DeleteFineTuningMessage(ok=ok)
+
+
+class InsertUpdateAsyncTask(Mutation):
+    async_task = Field(AsyncTaskType)
+
+    class Arguments:
+        function_name = String(required=True)
+        task_uuid = String(required=False)
+        arguments = JSON(required=False)
+        status = String(required=False)
+        results = JSON(required=False)
+        log = String(required=False)
+
+    @staticmethod
+    def mutate(
+        root: Any, info: Any, **kwargs: Dict[str, Any]
+    ) -> "InsertUpdateAsyncTask":
+        try:
+            async_task = insert_update_async_task_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return InsertUpdateAsyncTask(async_task=async_task)
+
+
+class DeleteAsyncTask(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        function_name = String(required=True)
+        task_uuid = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteAsyncTask":
+        try:
+            ok = delete_async_task_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return DeleteAsyncTask(ok=ok)
