@@ -122,9 +122,9 @@ class AsyncTaskModel(BaseModel):
 
     function_name = UnicodeAttribute(hash_key=True)
     task_uuid = UnicodeAttribute(range_key=True)
-    task_arguments = MapAttribute()
-    task_status = UnicodeAttribute()
-    task_result = UnicodeAttribute(null=True)
-    task_log = UnicodeAttribute(null=True)
+    arguments = MapAttribute()
+    status = UnicodeAttribute()
+    results = MapAttribute(null=True)
+    log = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()

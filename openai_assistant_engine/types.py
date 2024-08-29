@@ -102,6 +102,17 @@ class FineTuningMessageType(ObjectType):
     trained = Boolean()
 
 
+class AsyncTaskType(ObjectType):
+    function_name = String()
+    task_uuid = String()
+    arguments = JSON()
+    status = String()
+    results = JSON()
+    log = String()
+    created_at = DateTime()
+    updated_at = DateTime()
+
+
 class AssistantListType(ListObjectType):
     assistant_list = List(AssistantType)
 
@@ -120,3 +131,7 @@ class ToolCallListType(ListObjectType):
 
 class FineTuningMessageListType(ListObjectType):
     fine_tuning_message_list = List(FineTuningMessageType)
+
+
+class AsyncTaskListType(ListObjectType):
+    async_task_list = List(AsyncTaskType)
