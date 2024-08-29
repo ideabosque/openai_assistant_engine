@@ -437,36 +437,32 @@ def resolve_last_message_handler(
         raise e
 
 
-def handle_stream(
+def handle_openai_assistant_stream(
     info: ResolveInfo,
-    thread_id: str,
-    assistant_id: str,
-    assistant_type: str,
     queue: Queue,
-    instructions: str = None,  # Optional parameter added here
+    arguments: Dict[str, Any],
 ) -> None:
-    event_handler = EventHandler(info, assistant_type, queue=queue)
+    event_handler = EventHandler(info, arguments["assistant_type"], queue=queue)
     with client.beta.threads.runs.stream(
-        thread_id=thread_id,
-        assistant_id=assistant_id,
+        thread_id=arguments["thread_id"],
+        assistant_id=arguments["assistant_id"],
         event_handler=event_handler,
-        instructions=instructions,  # Pass instructions to the stream if provided
+        instructions=arguments.get(
+            "instructions"
+        ),  # Pass instructions to the stream if provided
     ) as stream:
         stream.until_done()
 
 
 def get_current_run_id_and_start_async_task(
     info: ResolveInfo,
-    thread_id: str,
-    assistant_id: str,
-    assistant_type: str,
-    instructions: str = None,
+    **arguments: Dict[str, Any],
 ) -> str:
     try:
         queue = Queue()
         stream_thread = threading.Thread(
-            target=handle_stream,
-            args=(info, thread_id, assistant_id, assistant_type, queue, instructions),
+            target=handle_openai_assistant_stream,
+            args=(info, queue, arguments),
         )
         stream_thread.start()
         q = queue.get()
@@ -507,10 +503,12 @@ def resolve_ask_open_ai_handler(
 
         current_run_id = get_current_run_id_and_start_async_task(
             info,
-            thread_id,
-            assistant_id,
-            assistant_type,
-            instructions=kwargs.get("instructions"),
+            **{
+                "thread_id": thread_id,
+                "assistant_id": assistant_id,
+                "assistant_type": assistant_type,
+                "instructions": kwargs.get("instructions"),
+            },
         )
 
         return AskOpenAIType(
