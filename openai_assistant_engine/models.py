@@ -68,7 +68,7 @@ class ToolCallModel(BaseModel):
     created_at = UTCDateTimeAttribute()
 
 
-class AssistantIdIndex(LocalSecondaryIndex):
+class ThreadIdIndex(LocalSecondaryIndex):
     """
     This class represents a local secondary index
     """
@@ -77,24 +77,40 @@ class AssistantIdIndex(LocalSecondaryIndex):
         billing_mode = "PAY_PER_REQUEST"
         # All attributes are projected
         projection = AllProjection()
-        index_name = "assistant_id-index"
+        index_name = "thread_id-index"
 
-    model = UnicodeAttribute(hash_key=True)
-    assistant_id = UTCDateTimeAttribute(range_key=True)
+    assistant_id = UnicodeAttribute(hash_key=True)
+    thread_id = UTCDateTimeAttribute(range_key=True)
+
+
+class TimestampIndex(LocalSecondaryIndex):
+    """
+    This class represents a local secondary index
+    """
+
+    class Meta:
+        billing_mode = "PAY_PER_REQUEST"
+        # All attributes are projected
+        projection = AllProjection()
+        index_name = "timestamp-index"
+
+    assistant_id = UnicodeAttribute(hash_key=True)
+    timestamp = UTCDateTimeAttribute(range_key=True)
 
 
 class FineTuningMessageModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "oae-fine_tuning_messages"
 
-    model = UnicodeAttribute(hash_key=True)
-    timestamp = UnicodeAttribute(range_key=True)
-    assistant_id = UnicodeAttribute()
-    assistant_type = UnicodeAttribute()
+    assistant_id = UnicodeAttribute(hash_key=True)
+    message_uuid = UnicodeAttribute(range_key=True)
+    thread_id = UnicodeAttribute()
+    timestamp = UnicodeAttribute()
     role = UnicodeAttribute()
     tool_calls = ListAttribute(of=MapAttribute, null=True)
     tool_call_id = UnicodeAttribute(null=True)
     content = UnicodeAttribute(null=True)
     weight = NumberAttribute(null=True)
     trained = BooleanAttribute(default=False)
-    assistant_id_index = AssistantIdIndex()
+    thread_id_index = ThreadIdIndex()
+    timestamp_index = TimestampIndex()

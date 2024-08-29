@@ -10,6 +10,7 @@ import logging
 import threading
 import time
 import traceback
+import uuid
 from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
@@ -737,6 +738,16 @@ def get_thread(assistant_id: str, thread_id: str) -> ThreadModel:
     return ThreadModel.get(assistant_id, thread_id)
 
 
+def _get_thread(assistant_id: str, thread_id: str) -> Dict[str, Any]:
+    thread = get_thread(assistant_id, thread_id)
+    return {
+        "assistant_id": thread.assistant_id,
+        "thread_id": thread.thread_id,
+        "assistant_type": thread.assistant_type,
+        "run": thread.runs,
+    }
+
+
 def get_thread_count(assistant_id: str, thread_id: str) -> int:
     return ThreadModel.count(assistant_id, ThreadModel.thread_id == thread_id)
 
@@ -1077,13 +1088,15 @@ def delete_tool_call_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> boo
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_fine_tuning_message(model: str, timestamp: str) -> FineTuningMessageModel:
-    return FineTuningMessageModel.get(model, timestamp)
+def get_fine_tuning_message(
+    assistant_id: str, message_uuid: str
+) -> FineTuningMessageModel:
+    return FineTuningMessageModel.get(assistant_id, message_uuid)
 
 
-def get_fine_tuning_message_count(model: str, timestamp: str) -> int:
+def get_fine_tuning_message_count(assistant_id: str, message_uuid: str) -> int:
     return FineTuningMessageModel.count(
-        model, FineTuningMessageModel.timestamp == timestamp
+        assistant_id, FineTuningMessageModel.message_uuid == message_uuid
     )
 
 
@@ -1091,16 +1104,16 @@ def get_fine_tuning_message_type(
     info: ResolveInfo, fine_tuning_message: FineTuningMessageModel
 ) -> FineTuningMessageType:
     try:
-        assistant = _get_assistant(
-            fine_tuning_message.assistant_type, fine_tuning_message.assistant_id
+        thread = _get_thread(
+            fine_tuning_message.assistant_id, fine_tuning_message.thread_id
         )
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").exception(log)
         raise e
     fine_tuning_message = fine_tuning_message.__dict__["attribute_values"]
-    fine_tuning_message["assistant"] = assistant
-    fine_tuning_message.pop("assistant_type")
+    fine_tuning_message["thread"] = thread
+    fine_tuning_message.pop("thread_id")
     fine_tuning_message.pop("assistant_id")
     return FineTuningMessageType(
         **Utility.json_loads(Utility.json_dumps(fine_tuning_message))
@@ -1112,34 +1125,39 @@ def resolve_fine_tuning_message_handler(
 ) -> FineTuningMessageType:
     return get_fine_tuning_message_type(
         info,
-        get_fine_tuning_message(kwargs.get("model"), kwargs.get("timestamp")),
+        get_fine_tuning_message(kwargs.get("assistant_id"), kwargs.get("message_uuid")),
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["model", "assistant_id", "timestamp"],
+    attributes_to_get=["assistant_id", "message_uuid", "thread_id", "timestamp"],
     list_type_class=FineTuningMessageListType,
     type_funct=get_fine_tuning_message_type,
 )
 def resolve_fine_tuning_message_list_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> Any:
-    model = kwargs.get("model")
     assistant_id = kwargs.get("assistant_id")
+    thread_id = kwargs.get("thread_id")
     roles = kwargs.get("roles")
     trained = kwargs.get("trained")
+    timestamp = kwargs.get("timestamp")
 
     args = []
     inquiry_funct = FineTuningMessageModel.scan
     count_funct = FineTuningMessageModel.count
-    if model:
-        args = [model, None]
+    if assistant_id:
+        args = [assistant_id, None]
         inquiry_funct = FineTuningMessageModel.query
-        if assistant_id:
-            inquiry_funct = FineTuningMessageModel.assistant_id_index.query
-            args[1] = FineTuningMessageModel.assistant_id == assistant_id
-            count_funct = FineTuningMessageModel.assistant_id_index.count
+        if thread_id:
+            inquiry_funct = FineTuningMessageModel.thread_id_index.query
+            args[1] = FineTuningMessageModel.thread_id == thread_id
+            count_funct = FineTuningMessageModel.thread_id_index.count
+        if timestamp:
+            inquiry_funct = FineTuningMessageModel.timestamp_index.query
+            args[1] = FineTuningMessageModel.timestamp == timestamp
+            count_funct = FineTuningMessageModel.timestamp_index.count
 
     the_filters = None
     if roles:
@@ -1152,12 +1170,210 @@ def resolve_fine_tuning_message_list_handler(
     return inquiry_funct, count_funct, args
 
 
+def insert_update_fine_tuning_messages_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> bool:
+    try:
+        if (
+            kwargs.get("trained_message_uuids")
+            or kwargs.get("weightup_message_uuids")
+            or kwargs.get("weightdown_message_uuids")
+        ):
+            message_uuids = list(
+                set(
+                    kwargs.get("trained_message_uuids", [])
+                    + kwargs.get("weightup_message_uuids", [])
+                    + kwargs.get("weightdown_message_uuids", [])
+                )
+            )
+
+            with FineTuningMessageModel.batch_write() as batch:
+                for message_uuid in message_uuids:
+                    count = get_fine_tuning_message_count(
+                        kwargs["assistantId"], message_uuid
+                    )
+                    if count == 0:
+                        continue
+
+                    fine_tuning_message = get_fine_tuning_message(
+                        kwargs["assistantId"], message_uuid
+                    )
+                    if message_uuid in kwargs.get("trained_message_uuids", []):
+                        fine_tuning_message.trained = True
+                    if message_uuid in kwargs.get("weightup_message_uuids", []):
+                        fine_tuning_message.weight = 1
+                    if message_uuid in kwargs.get("weightdown_message_uuids", []):
+                        fine_tuning_message.weight = 0
+                    batch.save(fine_tuning_message)
+
+            return True
+
+        assistant = get_assistant_type(
+            info,
+            assistant=get_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
+        )
+
+        # Step 1: Query the oae-threads table to get thread_id and run_id values
+        threads = ThreadModel.query(kwargs["assistant_id"], None)
+
+        raw_fine_tuning_messages = []
+
+        # Step 2: Query the oae-messages and oae-tool_calls tables for each thread_id and run_id, then construct the conversation
+        for thread in threads:
+            run_ids = [run["run_id"] for run in thread.runs]
+
+            info.context.get("logger").info(
+                f"Querying the oae-messages table for thread_id: {thread.thread_id}..."
+            )
+
+            _raw_fine_tuning_messages = [
+                {
+                    "assistant_id": kwargs["assistant_id"],
+                    "message_uuid": str(uuid.uuid1().int >> 64),
+                    "thread_id": thread.thread_id,
+                    "timestamp": f"{thread.created_at.timestamp()}",
+                    "role": "system",
+                    "content": assistant.instructions,
+                }
+            ]
+
+            # Query messages table
+            messages = MessageModel.query(thread.thread_id, None)
+            for message in messages:
+                raw_fine_tuning_message = {
+                    "assistant_id": kwargs["assistant_id"],
+                    "message_uuid": str(uuid.uuid1().int >> 64),
+                    "thread_id": thread.thread_id,
+                    "timestamp": f"{int(time.mktime(message.created_at.timetuple()))}",
+                    "role": message.role,
+                    "content": message.message,
+                }
+                if message.role == "assistant":
+                    raw_fine_tuning_message["weight"] = 1
+
+                _raw_fine_tuning_messages.append(raw_fine_tuning_message)
+
+            for run_id in run_ids:
+                info.context.get("logger").info(
+                    f"Querying the oae-tool_calls table for run_id: {run_id}..."
+                )
+
+                # Query tool_calls table
+                # the_tool_calls = ToolCallModel.query(run_id, None)
+                the_tool_calls = [
+                    the_tool_call for the_tool_call in ToolCallModel.query(run_id, None)
+                ]
+
+                if len(the_tool_calls) == 0:
+                    continue
+
+                tool_calls = []
+                # Find the earliest created_at
+                earliest_the_tool_call = min(
+                    the_tool_calls,
+                    key=lambda x: x.created_at,
+                )
+                # Process tool call
+                for tool_call in the_tool_calls:
+                    # Handling function calls and their responses
+                    tool_call_entry = {
+                        "id": tool_call.tool_call_id,
+                        "type": tool_call.tool_type,
+                        "function": {
+                            "name": tool_call.name,
+                            "arguments": tool_call.arguments,
+                        },
+                    }
+                    tool_calls.append(tool_call_entry)
+
+                    function_response = {
+                        "assistant_id": kwargs["assistant_id"],
+                        "message_uuid": str(uuid.uuid1().int >> 64),
+                        "thread_id": thread.thread_id,
+                        "timestamp": f"{int(time.mktime(tool_call.created_at.timetuple()))}",
+                        "role": "tool",
+                        "tool_call_id": tool_call.tool_call_id,
+                        "content": tool_call.content,
+                    }
+
+                    _raw_fine_tuning_messages.append(function_response)
+
+                # Add aggregated tool calls as a single assistant entry
+                if tool_calls:
+                    tool_call_message = {
+                        "assistant_id": kwargs["assistant_id"],
+                        "message_uuid": str(uuid.uuid1().int >> 64),
+                        "thread_id": thread.thread_id,
+                        "timestamp": f"{int(time.mktime(earliest_the_tool_call.created_at.timetuple()))}",
+                        "role": "assistant",
+                        "tool_calls": tool_calls,
+                    }
+                    _raw_fine_tuning_messages.append(tool_call_message)
+
+            # Sort _raw_fine_tuning_messages by timestamp
+            _sorted_raw_fine_tuning_messages = sorted(
+                _raw_fine_tuning_messages, key=lambda x: float(x["timestamp"])
+            )
+
+            # Remove the last message if it is not from the assistant with content
+            while True:
+                if _sorted_raw_fine_tuning_messages[-1]["role"] == "system" or (
+                    _sorted_raw_fine_tuning_messages[-1]["role"] == "assistant"
+                    and _sorted_raw_fine_tuning_messages[-1].get("content")
+                ):
+                    break
+                _sorted_raw_fine_tuning_messages.pop()
+
+            # Skip the conversation if it only contains the system message
+            if len(_sorted_raw_fine_tuning_messages) == 1:
+                print(
+                    f"Skipping _raw_fine_tuning_messages for thread_id: {thread.thread_id} as it only contains the system message."
+                )
+                continue
+
+            raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
+
+        # for raw_fine_tuning_message in raw_fine_tuning_messages:
+        #     try:
+        #         FineTuningMessageModel(**raw_fine_tuning_message).save()
+        #     except Exception as e:
+        #         info.context.get("logger").info(raw_fine_tuning_message)
+        #         log = traceback.format_exc()
+        #         info.context.get("logger").error(log)
+        #         raise e
+
+        with FineTuningMessageModel.batch_write() as batch:
+            for raw_fine_tuning_message in raw_fine_tuning_messages:
+                count = FineTuningMessageModel.timestamp_index.count(
+                    kwargs["assistant_id"],
+                    FineTuningMessageModel.timestamp
+                    == raw_fine_tuning_message["timestamp"],
+                    FineTuningMessageModel.role == raw_fine_tuning_message["role"],
+                )
+
+                if count == 0:
+                    batch.save(FineTuningMessageModel(**raw_fine_tuning_message))
+                    continue
+
+                fine_tuning_message = get_fine_tuning_message(
+                    kwargs["assistant_id"], raw_fine_tuning_message["message_uuid"]
+                )
+                if kwargs.get("retrain", False):
+                    fine_tuning_message.trained = False
+                batch.save(fine_tuning_message)
+
+        return True
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
 @insert_update_decorator(
     keys={
-        "hash_key": "model",
-        "range_key": "timestamp",
+        "hash_key": "assistant_id",
+        "range_key": "message_uuid",
     },
-    range_key_required=True,
     model_funct=get_fine_tuning_message,
     count_funct=get_fine_tuning_message_count,
     type_funct=get_fine_tuning_message_type,
@@ -1165,11 +1381,11 @@ def resolve_fine_tuning_message_list_handler(
 def insert_update_fine_tuning_message_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> None:
-    model = kwargs["model"]
-    timestamp = kwargs["timestamp"]
+    assistant_id = kwargs["assistant_id"]
+    message_uuid = kwargs["message_uuid"]
     cols = {
-        "assistant_id": kwargs["assistant_id"],
-        "assistant_type": kwargs["assistant_type"],
+        "thread_id": kwargs["thread_id"],
+        "timestamp": kwargs["timestamp"],
         "role": kwargs["role"],
     }
     if kwargs.get("tool_calls") is not None:
@@ -1184,8 +1400,8 @@ def insert_update_fine_tuning_message_handler(
         cols["trained"] = kwargs["trained"]
     if kwargs.get("entity") is None:
         FineTuningMessageModel(
-            model,
-            timestamp,
+            assistant_id,
+            message_uuid,
             **cols,
         ).save()
         return
@@ -1207,8 +1423,8 @@ def insert_update_fine_tuning_message_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "model",
-        "range_key": "timestamp",
+        "hash_key": "assistant_id",
+        "range_key": "message_uuid",
     },
     model_funct=get_fine_tuning_message,
 )

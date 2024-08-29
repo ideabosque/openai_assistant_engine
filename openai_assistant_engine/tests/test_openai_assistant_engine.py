@@ -697,13 +697,27 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_fine_tuning_messages(self):
+        variables = {
+            "assistantType": "conversation",
+            "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "insertUpdateFineTuningMessages",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
     @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_message(self):
         variables = {
-            "model": "gpt-4o-2024-05-13",
+            "assistantId": "asst_BUoN3ONJdMzqVpvi0wrplGPj",
+            "messageUuid": "7947670243734852079",
+            "threadId": "thread_3c2YnLa2aWz4o1ZOxZd28Y0k",
             "timestamp": "2024-05-13T23:23:32.000000+0000",
-            "assistantId": "asst_0tCDxNsScVvEVekbjSqxBThi",
-            "assistantType": "conversation",
             "role": "assistant",
             "toolCalls": [
                 {
@@ -725,7 +739,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_delete_fine_tuning_message(self):
         variables = {
             "model": "gpt-4o-2024-05-13",
@@ -742,8 +756,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_fine_tuning_message(self):
         variables = {
-            "model": "gpt-4o-2024-05-13",
-            "timestamp": "2024-05-13T23:23:32.000000+0000",
+            "assistantId": "asst_BUoN3ONJdMzqVpvi0wrplGPj",
+            "messageUuid": "7947670243734852079",
         }
         payload = {
             "query": document,
@@ -756,7 +770,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_fine_tuning_message_list(self):
         variables = {
-            "model": "gpt-4o-2024-05-13",
+            "assistantId": "asst_BUoN3ONJdMzqVpvi0wrplGPj",
             "pageNumber": 1,
             "limit": 100,
         }

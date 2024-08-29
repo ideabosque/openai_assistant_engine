@@ -91,9 +91,9 @@ class ToolCallType(ObjectType):
 
 
 class FineTuningMessageType(ObjectType):
-    model = String()
+    thread = JSON()
+    message_uuid = String()
     timestamp = String()
-    assistant = JSON()
     role = String()
     tool_calls = List(JSON)
     tool_call_id = String()
