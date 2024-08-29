@@ -21,6 +21,7 @@ from .mutations import (
     InsertFile,
     InsertUpdateAssistant,
     InsertUpdateFineTuningMessage,
+    InsertUpdateFineTuningMessages,
     InsertUpdateMessage,
     InsertUpdateThread,
     InsertUpdateToolCall,
@@ -198,18 +199,19 @@ class Query(ObjectType):
     fine_tuning_message = Field(
         FineTuningMessageType,
         required=True,
-        model=String(required=True),
-        timestamp=String(required=True),
+        assistant_id=String(required=True),
+        message_uuid=String(required=True),
     )
 
     fine_tuning_message_list = Field(
         FineTuningMessageListType,
         page_number=Int(),
         limit=Int(),
-        model=String(),
         assistant_id=String(),
+        thread_id=String(),
         roles=List(String),
         trained=Boolean(),
+        timestamp=String(),
     )
 
     def resolve_ping(self, info: ResolveInfo) -> str:
@@ -305,5 +307,6 @@ class Mutations(ObjectType):
     delete_message = DeleteMessage.Field()
     insert_update_tool_call = InsertUpdateToolCall.Field()
     delete_tool_call = DeleteToolCall.Field()
+    insert_update_fine_tuning_messages = InsertUpdateFineTuningMessages.Field()
     insert_update_fine_tuning_message = InsertUpdateFineTuningMessage.Field()
     delete_fine_tuning_message = DeleteFineTuningMessage.Field()

@@ -115,9 +115,9 @@ fragment ToolCallListInfo on ToolCallListType {
 }
 
 fragment FineTuningMessageInfo on FineTuningMessageType {
-    model
+    thread
+    messageUuid
     timestamp
-    assistant
     role
     toolCalls
     toolCallId
@@ -544,12 +544,12 @@ mutation deleteToolCall(
 }
 
 query getFineTuningMessage(
-    $model: String!,
-    $timestamp: String!
+    $assistantId: String!,
+    $messageUuid: String!
 ) {
     fineTuningMessage(
-        model: $model,
-        timestamp: $timestamp
+        assistantId: $assistantId,
+        messageUuid: $messageUuid
     ) {
         ...FineTuningMessageInfo
     }
@@ -558,28 +558,50 @@ query getFineTuningMessage(
 query getFineTuningMessageList(
     $pageNumber: Int, 
     $limit: Int,
-    $model: String,
     $assistantId: String,
+    $threadId: String,
     $roles: [String],
-    $trained: Boolean
+    $trained: Boolean,
+    $timestamp: String
 ) {
     fineTuningMessageList(
         pageNumber: $pageNumber,
         limit: $limit,
-        model: $model,
         assistantId: $assistantId,
+        threadId: $threadId,
         roles: $roles,
-        trained: $trained
+        trained: $trained,
+        timestamp: $timestamp
     ) {
         ...FineTuningMessageListInfo
     }
 }
 
+mutation insertUpdateFineTuningMessages(
+    $assistantType: String,
+    $assistantId: String,
+    $retrain: Boolean,
+    $trainedMessageUuids: [String],
+    $weightupMessageUuids: [String],
+    $weightdownMessageUuids: [String]
+) {
+    insertUpdateFineTuningMessages(
+        assistantType: $assistantType,
+        assistantId: $assistantId,
+        retrain: $retrain,
+        trainedMessageUuids: $trainedMessageUuids,
+        weightupMessageUuids: $weightupMessageUuids,
+        weightdownMessageUuids: $weightdownMessageUuids
+    ) {
+        ok
+    }
+}
+
 mutation insertUpdateFineTuningMessage(
-    $model: String!,
-    $timestamp: String!,
     $assistantId: String!,
-    $assistantType: String!,
+    $messageUuid: String,
+    $threadId: String!,
+    $timestamp: String!,
     $role: String!,
     $toolCalls: [JSON],
     $toolCallId: String,
@@ -588,10 +610,10 @@ mutation insertUpdateFineTuningMessage(
     $trained: Boolean
 ) {
     insertUpdateFineTuningMessage(
-        model: $model,
-        timestamp: $timestamp,
         assistantId: $assistantId,
-        assistantType: $assistantType,
+        messageUuid: $messageUuid,
+        threadId: $threadId,
+        timestamp: $timestamp,
         role: $role,
         toolCalls: $toolCalls,
         toolCallId: $toolCallId,
@@ -606,12 +628,12 @@ mutation insertUpdateFineTuningMessage(
 }
 
 mutation deleteFineTuningMessage(
-    $model: String!,
-    $timestamp: String!
+    $assistantId: String!,
+    $messageUuid: String!
 ) {
     deleteFineTuningMessage(
-        model: $model,
-        timestamp: $timestamp
+        assistantId: $assistantId,
+        messageUuid: $messageUuid
     ) {
         ok
     }

@@ -20,6 +20,7 @@ from .handlers import (
     insert_file_handler,
     insert_update_assistant_handler,
     insert_update_fine_tuning_message_handler,
+    insert_update_fine_tuning_messages_handler,
     insert_update_message_handler,
     insert_update_thread_handler,
     insert_update_tool_call_handler,
@@ -253,14 +254,39 @@ class DeleteToolCall(Mutation):
         return DeleteToolCall(ok=ok)
 
 
+class InsertUpdateFineTuningMessages(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        assistant_type = String(required=False)
+        assistant_id = String(required=False)
+        retrain = Boolean(required=False)
+        trained_message_uuids = List(String, required=False)
+        weightup_message_uuids = List(String, required=False)
+        weightdown_message_uuids = List(String, required=False)
+
+    @staticmethod
+    def mutate(
+        root: Any, info: Any, **kwargs: Dict[str, Any]
+    ) -> "InsertUpdateFineTuningMessages":
+        try:
+            ok = insert_update_fine_tuning_messages_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return InsertUpdateFineTuningMessages(ok=ok)
+
+
 class InsertUpdateFineTuningMessage(Mutation):
     fine_tuning_message = Field(FineTuningMessageType)
 
     class Arguments:
-        model = String(required=True)
-        timestamp = String(required=True)
         assistant_id = String(required=True)
-        assistant_type = String(required=True)
+        message_uuid = String(required=False)
+        thread_id = String(required=True)
+        timestamp = String(required=True)
         role = String(required=True)
         tool_calls = List(JSON, required=False)
         tool_call_id = String(required=False)
@@ -288,8 +314,8 @@ class DeleteFineTuningMessage(Mutation):
     ok = Boolean()
 
     class Arguments:
-        model = String(required=True)
-        timestamp = String(required=True)
+        assistant_id = String(required=True)
+        message_uuid = String(required=True)
 
     @staticmethod
     def mutate(
