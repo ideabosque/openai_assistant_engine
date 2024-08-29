@@ -13,6 +13,7 @@ from silvaengine_utility import JSON
 
 from .mutations import (
     DeleteAssistant,
+    DeleteAsyncTask,
     DeleteFile,
     DeleteFineTuningMessage,
     DeleteMessage,
@@ -20,6 +21,7 @@ from .mutations import (
     DeleteToolCall,
     InsertFile,
     InsertUpdateAssistant,
+    InsertUpdateAsyncTask,
     InsertUpdateFineTuningMessage,
     InsertUpdateFineTuningMessages,
     InsertUpdateMessage,
@@ -30,6 +32,8 @@ from .queries import (
     resolve_ask_open_ai,
     resolve_assistant,
     resolve_assistant_list,
+    resolve_async_task,
+    resolve_async_task_list,
     resolve_current_run,
     resolve_file,
     resolve_files,
@@ -48,6 +52,8 @@ from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
+    AsyncTaskListType,
+    AsyncTaskType,
     CurrentRunType,
     FineTuningMessageListType,
     FineTuningMessageType,
@@ -214,6 +220,21 @@ class Query(ObjectType):
         timestamp=Int(),
     )
 
+    async_task = Field(
+        AsyncTaskType,
+        required=True,
+        function_name=String(required=True),
+        task_uuid=String(required=True),
+    )
+
+    async_task_list = Field(
+        AsyncTaskListType,
+        page_number=Int(),
+        limit=Int(),
+        function_name=String(),
+        statuses=List(String),
+    )
+
     def resolve_ping(self, info: ResolveInfo) -> str:
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -295,6 +316,16 @@ class Query(ObjectType):
     ) -> FineTuningMessageListType:
         return resolve_fine_tuning_message_list(info, **kwargs)
 
+    def resolve_async_task(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> AsyncTaskType:
+        return resolve_async_task(info, **kwargs)
+
+    def resolve_async_task_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> AsyncTaskListType:
+        return resolve_async_task_list(info, **kwargs)
+
 
 class Mutations(ObjectType):
     insert_file = InsertFile.Field()
@@ -310,3 +341,5 @@ class Mutations(ObjectType):
     insert_update_fine_tuning_messages = InsertUpdateFineTuningMessages.Field()
     insert_update_fine_tuning_message = InsertUpdateFineTuningMessage.Field()
     delete_fine_tuning_message = DeleteFineTuningMessage.Field()
+    insert_update_async_task = InsertUpdateAsyncTask.Field()
+    delete_async_task = DeleteAsyncTask.Field()

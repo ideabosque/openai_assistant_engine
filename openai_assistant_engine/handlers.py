@@ -1533,7 +1533,6 @@ def insert_update_async_task_handler(
             task_uuid,
             **{
                 "arguments": kwargs["arguments"],
-                "status": kwargs["status"],
                 "created_at": pendulum.now("UTC"),
                 "updated_at": pendulum.now("UTC"),
             },
