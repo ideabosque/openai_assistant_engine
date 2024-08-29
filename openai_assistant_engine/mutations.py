@@ -7,7 +7,7 @@ __author__ = "bibow"
 import traceback
 from typing import Any, Dict
 
-from graphene import Boolean, DateTime, Field, Float, List, Mutation, String
+from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -286,7 +286,7 @@ class InsertUpdateFineTuningMessage(Mutation):
         assistant_id = String(required=True)
         message_uuid = String(required=False)
         thread_id = String(required=True)
-        timestamp = String(required=True)
+        timestamp = Int(required=True)
         role = String(required=True)
         tool_calls = List(JSON, required=False)
         tool_call_id = String(required=False)

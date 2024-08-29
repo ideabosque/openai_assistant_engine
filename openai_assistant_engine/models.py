@@ -80,7 +80,7 @@ class ThreadIdIndex(LocalSecondaryIndex):
         index_name = "thread_id-index"
 
     assistant_id = UnicodeAttribute(hash_key=True)
-    thread_id = UTCDateTimeAttribute(range_key=True)
+    thread_id = UnicodeAttribute(range_key=True)
 
 
 class TimestampIndex(LocalSecondaryIndex):
@@ -95,7 +95,7 @@ class TimestampIndex(LocalSecondaryIndex):
         index_name = "timestamp-index"
 
     assistant_id = UnicodeAttribute(hash_key=True)
-    timestamp = UTCDateTimeAttribute(range_key=True)
+    timestamp = NumberAttribute(range_key=True)
 
 
 class FineTuningMessageModel(BaseModel):
@@ -105,7 +105,7 @@ class FineTuningMessageModel(BaseModel):
     assistant_id = UnicodeAttribute(hash_key=True)
     message_uuid = UnicodeAttribute(range_key=True)
     thread_id = UnicodeAttribute()
-    timestamp = UnicodeAttribute()
+    timestamp = NumberAttribute()
     role = UnicodeAttribute()
     tool_calls = ListAttribute(of=MapAttribute, null=True)
     tool_call_id = UnicodeAttribute(null=True)

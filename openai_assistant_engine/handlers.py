@@ -1231,7 +1231,7 @@ def insert_update_fine_tuning_messages_handler(
                     "assistant_id": kwargs["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
-                    "timestamp": f"{thread.created_at.timestamp()}",
+                    "timestamp": int(time.mktime(thread.created_at.timetuple())),
                     "role": "system",
                     "content": assistant.instructions,
                 }
@@ -1244,7 +1244,7 @@ def insert_update_fine_tuning_messages_handler(
                     "assistant_id": kwargs["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
-                    "timestamp": f"{int(time.mktime(message.created_at.timetuple()))}",
+                    "timestamp": int(time.mktime(message.created_at.timetuple())),
                     "role": message.role,
                     "content": message.message,
                 }
@@ -1290,7 +1290,7 @@ def insert_update_fine_tuning_messages_handler(
                         "assistant_id": kwargs["assistant_id"],
                         "message_uuid": str(uuid.uuid1().int >> 64),
                         "thread_id": thread.thread_id,
-                        "timestamp": f"{int(time.mktime(tool_call.created_at.timetuple()))}",
+                        "timestamp": int(time.mktime(tool_call.created_at.timetuple())),
                         "role": "tool",
                         "tool_call_id": tool_call.tool_call_id,
                         "content": tool_call.content,
@@ -1304,7 +1304,9 @@ def insert_update_fine_tuning_messages_handler(
                         "assistant_id": kwargs["assistant_id"],
                         "message_uuid": str(uuid.uuid1().int >> 64),
                         "thread_id": thread.thread_id,
-                        "timestamp": f"{int(time.mktime(earliest_the_tool_call.created_at.timetuple()))}",
+                        "timestamp": int(
+                            time.mktime(earliest_the_tool_call.created_at.timetuple())
+                        ),
                         "role": "assistant",
                         "tool_calls": tool_calls,
                     }
@@ -1312,7 +1314,7 @@ def insert_update_fine_tuning_messages_handler(
 
             # Sort _raw_fine_tuning_messages by timestamp
             _sorted_raw_fine_tuning_messages = sorted(
-                _raw_fine_tuning_messages, key=lambda x: float(x["timestamp"])
+                _raw_fine_tuning_messages, key=lambda x: x["timestamp"]
             )
 
             # Remove the last message if it is not from the assistant with content
@@ -1332,15 +1334,6 @@ def insert_update_fine_tuning_messages_handler(
                 continue
 
             raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
-
-        # for raw_fine_tuning_message in raw_fine_tuning_messages:
-        #     try:
-        #         FineTuningMessageModel(**raw_fine_tuning_message).save()
-        #     except Exception as e:
-        #         info.context.get("logger").info(raw_fine_tuning_message)
-        #         log = traceback.format_exc()
-        #         info.context.get("logger").error(log)
-        #         raise e
 
         with FineTuningMessageModel.batch_write() as batch:
             for raw_fine_tuning_message in raw_fine_tuning_messages:
