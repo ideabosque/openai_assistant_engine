@@ -70,7 +70,7 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
 
 def get_assistant_function(
-    logger: logging.Logger, assistant_type: str, assistant_id: str, function_name: str
+    info: ResolveInfo, assistant_type: str, assistant_id: str, function_name: str
 ) -> Optional[Callable]:
     try:
         assistant = get_assistant(assistant_type, assistant_id)
@@ -96,14 +96,14 @@ def get_assistant_function(
 
         return getattr(
             assistant_function_class(
-                logger,
+                info.context.get("logger"),
                 **Utility.json_loads(Utility.json_dumps(configuration)),
             ),
             function_name,
         )
     except Exception as e:
         log = traceback.format_exc()
-        logger.error(log)
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -194,12 +194,12 @@ def extract_requested_fields(info):
 class EventHandler(AssistantEventHandler):
     def __init__(
         self,
-        logger: logging.Logger,
+        info: ResolveInfo,
         assistant_type: str,
         queue: Optional[Queue] = None,
         print_progress: bool = False,
     ):
-        self.logger = logger
+        self.info = info
         self.assistant_type = assistant_type
         self.queue = queue
         self.print_progress = print_progress
@@ -207,9 +207,9 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def on_event(self, event: AssistantStreamEvent) -> None:
-        self.logger.debug(f"event: {event.event}")
+        self.info.context.get("logger").debug(f"event: {event.event}")
         if event.event == "thread.run.created":
-            self.logger.info(f"current_run_id: {event.data.id}")
+            self.info.context.get("logger").info(f"current_run_id: {event.data.id}")
             if self.queue is not None:
                 self.queue.put({"name": "current_run_id", "value": event.data.id})
         if event.event == "thread.run.requires_action":
@@ -219,7 +219,10 @@ class EventHandler(AssistantEventHandler):
         tool_outputs = []
         for tool in data.required_action.submit_tool_outputs.tool_calls:
             assistant_function = get_assistant_function(
-                self.logger, self.assistant_type, data.assistant_id, tool.function.name
+                self.info,
+                self.assistant_type,
+                data.assistant_id,
+                tool.function.name,
             )
             assert (
                 assistant_function is not None
@@ -228,16 +231,19 @@ class EventHandler(AssistantEventHandler):
             arguments = Utility.json_loads(tool.function.arguments)
             output = assistant_function(**arguments)
 
-            tool_call = ToolCallModel(data.id, tool.id)
-            tool_call.tool_type = "function"
-            tool_call.name = tool.function.name
-            tool_call.arguments = Utility.json_loads(
-                Utility.json_dumps(arguments), parser_number=False
-            )
+            tool_call = {
+                "run_id": data.id,
+                "tool_call_id": tool.id,
+                "tool_type": "function",
+                "name": tool.function.name,
+                "arguments": Utility.json_loads(
+                    Utility.json_dumps(arguments), parser_number=False
+                ),
+                "created_at": pendulum.from_timestamp(data.started_at, tz="UTC"),
+            }
             if output is not None:
-                tool_call.content = Utility.json_dumps(output)
-            tool_call.created_at = pendulum.from_timestamp(data.started_at, tz="UTC")
-            tool_call.save()
+                tool_call["content"] = Utility.json_dumps(output)
+            insert_update_tool_call_handler(self.info, **tool_call)
 
             tool_outputs.append(
                 {
@@ -253,7 +259,7 @@ class EventHandler(AssistantEventHandler):
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=EventHandler(self.logger, self.assistant_type),
+            event_handler=EventHandler(self.info, self.assistant_type),
         ) as stream:
             if self.print_progress:
                 for _ in stream.text_deltas:
@@ -432,14 +438,14 @@ def resolve_last_message_handler(
 
 
 def handle_stream(
-    logger: logging.Logger,
+    info: ResolveInfo,
     thread_id: str,
     assistant_id: str,
     assistant_type: str,
     queue: Queue,
     instructions: str = None,  # Optional parameter added here
 ) -> None:
-    event_handler = EventHandler(logger, assistant_type, queue=queue)
+    event_handler = EventHandler(info, assistant_type, queue=queue)
     with client.beta.threads.runs.stream(
         thread_id=thread_id,
         assistant_id=assistant_id,
@@ -450,7 +456,7 @@ def handle_stream(
 
 
 def get_current_run_id_and_start_async_task(
-    logger: logging.Logger,
+    info: ResolveInfo,
     thread_id: str,
     assistant_id: str,
     assistant_type: str,
@@ -460,7 +466,7 @@ def get_current_run_id_and_start_async_task(
         queue = Queue()
         stream_thread = threading.Thread(
             target=handle_stream,
-            args=(logger, thread_id, assistant_id, assistant_type, queue, instructions),
+            args=(info, thread_id, assistant_id, assistant_type, queue, instructions),
         )
         stream_thread.start()
         q = queue.get()
@@ -469,7 +475,7 @@ def get_current_run_id_and_start_async_task(
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
-        logger.error(log)
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -500,7 +506,7 @@ def resolve_ask_open_ai_handler(
             client.beta.threads.messages.create(**message)
 
         current_run_id = get_current_run_id_and_start_async_task(
-            info.context.get("logger"),
+            info,
             thread_id,
             assistant_id,
             assistant_type,
@@ -1044,17 +1050,19 @@ def insert_update_tool_call_handler(
 ) -> None:
     run_id = kwargs["run_id"]
     tool_call_id = kwargs["tool_call_id"]
+    cols = {
+        "tool_type": kwargs["tool_type"],
+        "name": kwargs["name"],
+        "arguments": kwargs["arguments"],
+        "created_at": kwargs["created_at"],
+    }
+    if kwargs.get("content") is not None:
+        cols["content"] = kwargs["content"]
     if kwargs.get("entity") is None:
         ToolCallModel(
             run_id,
             tool_call_id,
-            **{
-                "tool_type": kwargs["tool_type"],
-                "name": kwargs["name"],
-                "arguments": kwargs["arguments"],
-                "content": kwargs["content"],
-                "created_at": kwargs["created_at"],
-            },
+            **cols,
         ).save()
         return
 
