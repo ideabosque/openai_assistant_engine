@@ -211,7 +211,7 @@ class Query(ObjectType):
         thread_id=String(),
         roles=List(String),
         trained=Boolean(),
-        timestamp=String(),
+        timestamp=Int(),
     )
 
     def resolve_ping(self, info: ResolveInfo) -> str:

@@ -562,7 +562,7 @@ query getFineTuningMessageList(
     $threadId: String,
     $roles: [String],
     $trained: Boolean,
-    $timestamp: String
+    $timestamp: Int
 ) {
     fineTuningMessageList(
         pageNumber: $pageNumber,
@@ -601,7 +601,7 @@ mutation insertUpdateFineTuningMessage(
     $assistantId: String!,
     $messageUuid: String,
     $threadId: String!,
-    $timestamp: String!,
+    $timestamp: Int!,
     $role: String!,
     $toolCalls: [JSON],
     $toolCallId: String,

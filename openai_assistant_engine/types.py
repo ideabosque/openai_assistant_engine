@@ -93,7 +93,7 @@ class ToolCallType(ObjectType):
 class FineTuningMessageType(ObjectType):
     thread = JSON()
     message_uuid = String()
-    timestamp = String()
+    timestamp = Int()
     role = String()
     tool_calls = List(JSON)
     tool_call_id = String()
