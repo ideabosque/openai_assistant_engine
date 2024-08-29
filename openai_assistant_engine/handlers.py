@@ -32,6 +32,7 @@ from typing_extensions import override
 
 from .models import (
     AssistantModel,
+    AsyncTaskModel,
     FineTuningMessageModel,
     MessageModel,
     ThreadModel,
@@ -41,6 +42,8 @@ from .types import (
     AskOpenAIType,
     AssistantListType,
     AssistantType,
+    AsyncTaskListType,
+    AsyncTaskType,
     CurrentRunType,
     FineTuningMessageListType,
     FineTuningMessageType,
@@ -160,6 +163,30 @@ def assistant_decorator() -> Callable:
                 log = traceback.format_exc()
                 args[0].context.get("logger").error(log)
                 raise e
+
+        return wrapper_function
+
+    return actual_decorator
+
+
+def async_task_decorator() -> Callable:
+    def actual_decorator(original_function: Callable) -> Callable:
+        @functools.wraps(original_function)
+        def wrapper_function(*args: List, **kwargs: Dict[str, any]) -> Any:
+            function_name = original_function.__name__
+            try:
+                ## insert an entry into sync_tasks table.
+
+                original_function(*args, **kwargs)
+
+                ## Update the status for the entry.
+
+                return
+            except Exception as e:
+                log = traceback.format_exc()
+                args[0].context.get("logger").error(log)
+
+                ## Update the status with log for the entry.
 
         return wrapper_function
 
@@ -1430,5 +1457,109 @@ def insert_update_fine_tuning_message_handler(
 def delete_fine_tuning_message_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> bool:
+    kwargs.get("entity").delete()
+    return True
+
+
+@retry(
+    reraise=True,
+    wait=wait_exponential(multiplier=1, max=60),
+    stop=stop_after_attempt(5),
+)
+def get_async_task(function_name: str, task_uuid: str) -> AsyncTaskModel:
+    return AsyncTaskModel.get(function_name, task_uuid)
+
+
+def get_async_task_count(function_name: str, task_uuid: str) -> int:
+    return AsyncTaskModel.count(function_name, AsyncTaskModel.task_uuid == task_uuid)
+
+
+def get_async_task_type(info: ResolveInfo, async_task: AsyncTaskModel) -> AsyncTaskType:
+    return AsyncTaskType(**Utility.json_loads(Utility.json_dumps(async_task)))
+
+
+def resolve_async_task_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> AsyncTaskModel:
+    return get_async_task_type(
+        info,
+        get_async_task(kwargs.get("function_name"), kwargs.get("task_uuid")),
+    )
+
+
+@monitor_decorator
+@resolve_list_decorator(
+    attributes_to_get=["function_name", "task_uuid"],
+    list_type_class=AsyncTaskListType,
+    type_funct=get_async_task_type,
+)
+def resolve_async_task_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    function_name = kwargs.get("function_name")
+    statuses = kwargs.get("statuses")
+
+    args = []
+    inquiry_funct = AsyncTaskModel.scan
+    count_funct = AsyncTaskModel.count
+    if function_name:
+        args = [function_name, None]
+        inquiry_funct = AsyncTaskModel.query
+
+    the_filters = None
+    if statuses:
+        the_filters = AsyncTaskModel.status.is_in(*statuses)
+    if the_filters is not None:
+        args.append(the_filters)
+
+    return inquiry_funct, count_funct, args
+
+
+@insert_update_decorator(
+    keys={
+        "hash_key": "function_name",
+        "range_key": "task_uuid",
+    },
+    model_funct=get_async_task,
+    count_funct=get_async_task_count,
+    type_funct=get_async_task_type,
+)
+def insert_update_async_task_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> None:
+    function_name = kwargs["function_name"]
+    task_uuid = kwargs["task_uuid"]
+    if kwargs.get("entity") is None:
+        AsyncTaskModel(
+            function_name,
+            task_uuid,
+            **{
+                "arguments": kwargs["arguments"],
+                "status": kwargs["status"],
+                "created_at": pendulum.now("UTC"),
+                "updated_at": pendulum.now("UTC"),
+            },
+        ).save()
+        return
+
+    async_task = kwargs.get("entity")
+    actions = [
+        AsyncTaskModel.updated_at.set(pendulum.now("UTC")),
+    ]
+    if kwargs.get("status") is not None:
+        actions.append(AsyncTaskModel.status.set(kwargs["status"]))
+    if kwargs.get("results") is not None:
+        actions.append(AsyncTaskModel.results.set(kwargs["results"]))
+    if kwargs.get("log") is not None:
+        actions.append(AsyncTaskModel.log.set(kwargs["log"]))
+    async_task.update(actions=actions)
+
+
+@delete_decorator(
+    keys={
+        "hash_key": "function_name",
+        "range_key": "task_uuid",
+    },
+    model_funct=get_async_task,
+)
+def delete_async_task_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True
