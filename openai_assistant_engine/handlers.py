@@ -530,203 +530,6 @@ def async_openai_assistant_stream(
         stream.until_done()
 
 
-@async_task_decorator()
-def async_insert_update_fine_tuning_messages(
-    info: ResolveInfo, task_uuid: str, kwargs: Dict[str, Any]
-) -> bool:
-    try:
-        if (
-            kwargs.get("trained_message_uuids")
-            or kwargs.get("weightup_message_uuids")
-            or kwargs.get("weightdown_message_uuids")
-        ):
-            message_uuids = list(
-                set(
-                    kwargs.get("trained_message_uuids", [])
-                    + kwargs.get("weightup_message_uuids", [])
-                    + kwargs.get("weightdown_message_uuids", [])
-                )
-            )
-
-            with FineTuningMessageModel.batch_write() as batch:
-                for message_uuid in message_uuids:
-                    count = get_fine_tuning_message_count(
-                        kwargs["assistant_id"], message_uuid
-                    )
-                    if count == 0:
-                        continue
-
-                    fine_tuning_message = get_fine_tuning_message(
-                        kwargs["assistant_id"], message_uuid
-                    )
-                    if message_uuid in kwargs.get("trained_message_uuids", []):
-                        fine_tuning_message.trained = True
-                    if message_uuid in kwargs.get("weightup_message_uuids", []):
-                        fine_tuning_message.weight = 1
-                    if message_uuid in kwargs.get("weightdown_message_uuids", []):
-                        fine_tuning_message.weight = 0
-                    batch.save(fine_tuning_message)
-
-            return True
-
-        assistant = get_assistant_type(
-            info,
-            assistant=get_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
-        )
-
-        # Step 1: Query the oae-threads table to get thread_id and run_id values
-        threads = ThreadModel.query(kwargs["assistant_id"], None)
-
-        raw_fine_tuning_messages = []
-
-        # Step 2: Query the oae-messages and oae-tool_calls tables for each thread_id and run_id, then construct the conversation
-        for thread in threads:
-            run_ids = [run["run_id"] for run in thread.runs]
-
-            info.context.get("logger").info(
-                f"Querying the oae-messages table for thread_id: {thread.thread_id}..."
-            )
-
-            _raw_fine_tuning_messages = [
-                {
-                    "assistant_id": kwargs["assistant_id"],
-                    "message_uuid": str(uuid.uuid1().int >> 64),
-                    "thread_id": thread.thread_id,
-                    "timestamp": int(time.mktime(thread.created_at.timetuple())),
-                    "role": "system",
-                    "content": assistant.instructions,
-                }
-            ]
-
-            # Query messages table
-            messages = MessageModel.query(thread.thread_id, None)
-            for message in messages:
-                raw_fine_tuning_message = {
-                    "assistant_id": kwargs["assistant_id"],
-                    "message_uuid": str(uuid.uuid1().int >> 64),
-                    "thread_id": thread.thread_id,
-                    "timestamp": int(time.mktime(message.created_at.timetuple())),
-                    "role": message.role,
-                    "content": message.message,
-                }
-                if message.role == "assistant":
-                    raw_fine_tuning_message["weight"] = 1
-
-                _raw_fine_tuning_messages.append(raw_fine_tuning_message)
-
-            for run_id in run_ids:
-                info.context.get("logger").info(
-                    f"Querying the oae-tool_calls table for run_id: {run_id}..."
-                )
-
-                # Query tool_calls table
-                # the_tool_calls = ToolCallModel.query(run_id, None)
-                the_tool_calls = [
-                    the_tool_call for the_tool_call in ToolCallModel.query(run_id, None)
-                ]
-
-                if len(the_tool_calls) == 0:
-                    continue
-
-                tool_calls = []
-                # Find the earliest created_at
-                earliest_the_tool_call = min(
-                    the_tool_calls,
-                    key=lambda x: x.created_at,
-                )
-                # Process tool call
-                for tool_call in the_tool_calls:
-                    # Handling function calls and their responses
-                    tool_call_entry = {
-                        "id": tool_call.tool_call_id,
-                        "type": tool_call.tool_type,
-                        "function": {
-                            "name": tool_call.name,
-                            "arguments": tool_call.arguments,
-                        },
-                    }
-                    tool_calls.append(tool_call_entry)
-
-                    function_response = {
-                        "assistant_id": kwargs["assistant_id"],
-                        "message_uuid": str(uuid.uuid1().int >> 64),
-                        "thread_id": thread.thread_id,
-                        "timestamp": int(time.mktime(tool_call.created_at.timetuple())),
-                        "role": "tool",
-                        "tool_call_id": tool_call.tool_call_id,
-                        "content": tool_call.content,
-                    }
-
-                    _raw_fine_tuning_messages.append(function_response)
-
-                # Add aggregated tool calls as a single assistant entry
-                if tool_calls:
-                    tool_call_message = {
-                        "assistant_id": kwargs["assistant_id"],
-                        "message_uuid": str(uuid.uuid1().int >> 64),
-                        "thread_id": thread.thread_id,
-                        "timestamp": int(
-                            time.mktime(earliest_the_tool_call.created_at.timetuple())
-                        ),
-                        "role": "assistant",
-                        "tool_calls": tool_calls,
-                    }
-                    _raw_fine_tuning_messages.append(tool_call_message)
-
-            # Sort _raw_fine_tuning_messages by timestamp
-            _sorted_raw_fine_tuning_messages = sorted(
-                _raw_fine_tuning_messages, key=lambda x: x["timestamp"]
-            )
-
-            # Remove the last message if it is not from the assistant with content
-            while True:
-                if _sorted_raw_fine_tuning_messages[-1]["role"] == "system" or (
-                    _sorted_raw_fine_tuning_messages[-1]["role"] == "assistant"
-                    and _sorted_raw_fine_tuning_messages[-1].get("content")
-                ):
-                    break
-                _sorted_raw_fine_tuning_messages.pop()
-
-            # Skip the conversation if it only contains the system message
-            if len(_sorted_raw_fine_tuning_messages) == 1:
-                print(
-                    f"Skipping _raw_fine_tuning_messages for thread_id: {thread.thread_id} as it only contains the system message."
-                )
-                continue
-
-            raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
-
-        with FineTuningMessageModel.batch_write() as batch:
-            for raw_fine_tuning_message in raw_fine_tuning_messages:
-                results = FineTuningMessageModel.timestamp_index.query(
-                    kwargs["assistant_id"],
-                    FineTuningMessageModel.timestamp
-                    == raw_fine_tuning_message["timestamp"],
-                    FineTuningMessageModel.role == raw_fine_tuning_message["role"],
-                )
-
-                results = [result for result in results]
-                if len(results) == 0:
-                    batch.save(FineTuningMessageModel(**raw_fine_tuning_message))
-                    continue
-
-                if kwargs.get("retrain") is None:
-                    continue
-
-                fine_tuning_message = get_fine_tuning_message(
-                    kwargs["assistant_id"], results[0].message_uuid
-                )
-                if kwargs["retrain"] and fine_tuning_message.trained:
-                    fine_tuning_message.trained = False
-                    batch.save(fine_tuning_message)
-
-        return True
-    except Exception as e:
-        log = traceback.format_exc()
-        info.context.get("logger").error(log)
-        raise e
-
-
 def get_current_run_id_and_start_async_task(
     info: ResolveInfo,
     **arguments: Dict[str, Any],
@@ -1452,6 +1255,203 @@ def resolve_fine_tuning_message_list_handler(
         args.append(the_filters)
 
     return inquiry_funct, count_funct, args
+
+
+@async_task_decorator()
+def async_insert_update_fine_tuning_messages(
+    info: ResolveInfo, task_uuid: str, kwargs: Dict[str, Any]
+) -> bool:
+    try:
+        if (
+            kwargs.get("trained_message_uuids")
+            or kwargs.get("weightup_message_uuids")
+            or kwargs.get("weightdown_message_uuids")
+        ):
+            message_uuids = list(
+                set(
+                    kwargs.get("trained_message_uuids", [])
+                    + kwargs.get("weightup_message_uuids", [])
+                    + kwargs.get("weightdown_message_uuids", [])
+                )
+            )
+
+            with FineTuningMessageModel.batch_write() as batch:
+                for message_uuid in message_uuids:
+                    count = get_fine_tuning_message_count(
+                        kwargs["assistant_id"], message_uuid
+                    )
+                    if count == 0:
+                        continue
+
+                    fine_tuning_message = get_fine_tuning_message(
+                        kwargs["assistant_id"], message_uuid
+                    )
+                    if message_uuid in kwargs.get("trained_message_uuids", []):
+                        fine_tuning_message.trained = True
+                    if message_uuid in kwargs.get("weightup_message_uuids", []):
+                        fine_tuning_message.weight = 1
+                    if message_uuid in kwargs.get("weightdown_message_uuids", []):
+                        fine_tuning_message.weight = 0
+                    batch.save(fine_tuning_message)
+
+            return True
+
+        assistant = get_assistant_type(
+            info,
+            assistant=get_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
+        )
+
+        # Step 1: Query the oae-threads table to get thread_id and run_id values
+        threads = ThreadModel.query(kwargs["assistant_id"], None)
+
+        raw_fine_tuning_messages = []
+
+        # Step 2: Query the oae-messages and oae-tool_calls tables for each thread_id and run_id, then construct the conversation
+        for thread in threads:
+            run_ids = [run["run_id"] for run in thread.runs]
+
+            info.context.get("logger").info(
+                f"Querying the oae-messages table for thread_id: {thread.thread_id}..."
+            )
+
+            _raw_fine_tuning_messages = [
+                {
+                    "assistant_id": kwargs["assistant_id"],
+                    "message_uuid": str(uuid.uuid1().int >> 64),
+                    "thread_id": thread.thread_id,
+                    "timestamp": int(time.mktime(thread.created_at.timetuple())),
+                    "role": "system",
+                    "content": assistant.instructions,
+                }
+            ]
+
+            # Query messages table
+            messages = MessageModel.query(thread.thread_id, None)
+            for message in messages:
+                raw_fine_tuning_message = {
+                    "assistant_id": kwargs["assistant_id"],
+                    "message_uuid": str(uuid.uuid1().int >> 64),
+                    "thread_id": thread.thread_id,
+                    "timestamp": int(time.mktime(message.created_at.timetuple())),
+                    "role": message.role,
+                    "content": message.message,
+                }
+                if message.role == "assistant":
+                    raw_fine_tuning_message["weight"] = 1
+
+                _raw_fine_tuning_messages.append(raw_fine_tuning_message)
+
+            for run_id in run_ids:
+                info.context.get("logger").info(
+                    f"Querying the oae-tool_calls table for run_id: {run_id}..."
+                )
+
+                # Query tool_calls table
+                # the_tool_calls = ToolCallModel.query(run_id, None)
+                the_tool_calls = [
+                    the_tool_call for the_tool_call in ToolCallModel.query(run_id, None)
+                ]
+
+                if len(the_tool_calls) == 0:
+                    continue
+
+                tool_calls = []
+                # Find the earliest created_at
+                earliest_the_tool_call = min(
+                    the_tool_calls,
+                    key=lambda x: x.created_at,
+                )
+                # Process tool call
+                for tool_call in the_tool_calls:
+                    # Handling function calls and their responses
+                    tool_call_entry = {
+                        "id": tool_call.tool_call_id,
+                        "type": tool_call.tool_type,
+                        "function": {
+                            "name": tool_call.name,
+                            "arguments": tool_call.arguments,
+                        },
+                    }
+                    tool_calls.append(tool_call_entry)
+
+                    function_response = {
+                        "assistant_id": kwargs["assistant_id"],
+                        "message_uuid": str(uuid.uuid1().int >> 64),
+                        "thread_id": thread.thread_id,
+                        "timestamp": int(time.mktime(tool_call.created_at.timetuple())),
+                        "role": "tool",
+                        "tool_call_id": tool_call.tool_call_id,
+                        "content": tool_call.content,
+                    }
+
+                    _raw_fine_tuning_messages.append(function_response)
+
+                # Add aggregated tool calls as a single assistant entry
+                if tool_calls:
+                    tool_call_message = {
+                        "assistant_id": kwargs["assistant_id"],
+                        "message_uuid": str(uuid.uuid1().int >> 64),
+                        "thread_id": thread.thread_id,
+                        "timestamp": int(
+                            time.mktime(earliest_the_tool_call.created_at.timetuple())
+                        ),
+                        "role": "assistant",
+                        "tool_calls": tool_calls,
+                    }
+                    _raw_fine_tuning_messages.append(tool_call_message)
+
+            # Sort _raw_fine_tuning_messages by timestamp
+            _sorted_raw_fine_tuning_messages = sorted(
+                _raw_fine_tuning_messages, key=lambda x: x["timestamp"]
+            )
+
+            # Remove the last message if it is not from the assistant with content
+            while True:
+                if _sorted_raw_fine_tuning_messages[-1]["role"] == "system" or (
+                    _sorted_raw_fine_tuning_messages[-1]["role"] == "assistant"
+                    and _sorted_raw_fine_tuning_messages[-1].get("content")
+                ):
+                    break
+                _sorted_raw_fine_tuning_messages.pop()
+
+            # Skip the conversation if it only contains the system message
+            if len(_sorted_raw_fine_tuning_messages) == 1:
+                print(
+                    f"Skipping _raw_fine_tuning_messages for thread_id: {thread.thread_id} as it only contains the system message."
+                )
+                continue
+
+            raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
+
+        with FineTuningMessageModel.batch_write() as batch:
+            for raw_fine_tuning_message in raw_fine_tuning_messages:
+                results = FineTuningMessageModel.timestamp_index.query(
+                    kwargs["assistant_id"],
+                    FineTuningMessageModel.timestamp
+                    == raw_fine_tuning_message["timestamp"],
+                    FineTuningMessageModel.role == raw_fine_tuning_message["role"],
+                )
+
+                results = [result for result in results]
+                if len(results) == 0:
+                    batch.save(FineTuningMessageModel(**raw_fine_tuning_message))
+                    continue
+
+                if kwargs.get("retrain") is None:
+                    continue
+
+                fine_tuning_message = get_fine_tuning_message(
+                    kwargs["assistant_id"], results[0].message_uuid
+                )
+                if kwargs["retrain"] and fine_tuning_message.trained:
+                    fine_tuning_message.trained = False
+                    batch.save(fine_tuning_message)
+
+        return True
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
 
 
 def insert_update_fine_tuning_messages_handler(
