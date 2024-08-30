@@ -1434,7 +1434,7 @@ def async_insert_update_fine_tuning_messages(
 
             # Skip the conversation if it only contains the system message
             if len(_sorted_raw_fine_tuning_messages) == 1:
-                print(
+                info.context.get("logger").info(
                     f"Skipping _raw_fine_tuning_messages for thread_id: {thread.thread_id} as it only contains the system message."
                 )
                 continue
