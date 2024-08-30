@@ -1302,7 +1302,25 @@ def async_insert_update_fine_tuning_messages(
         )
 
         # Step 1: Query the oae-threads table to get thread_id and run_id values
-        threads = ThreadModel.query(kwargs["assistant_id"], None)
+
+        if kwargs.get("from_date") is None:
+            from_date = pendulum.now("UTC")
+        else:
+            from_date = pendulum.parse(kwargs["from_date"]).in_tz("UTC")
+
+        # Ensure days is set and is not more than 7
+        days = kwargs.get("days")
+        if days is None or days > 7:
+            days = 7
+
+        # Calculate to_date based on from_date and days
+        to_date = from_date.subtract(days=days)
+
+        threads = ThreadModel.query(
+            kwargs["assistant_id"],
+            None,
+            filter_condition=(ThreadModel.updated_at.between(to_date, from_date)),
+        )
 
         raw_fine_tuning_messages = []
 
@@ -1429,7 +1447,9 @@ def async_insert_update_fine_tuning_messages(
                     kwargs["assistant_id"],
                     FineTuningMessageModel.timestamp
                     == raw_fine_tuning_message["timestamp"],
-                    FineTuningMessageModel.role == raw_fine_tuning_message["role"],
+                    filter_condition=(
+                        FineTuningMessageModel.role == raw_fine_tuning_message["role"]
+                    ),
                 )
 
                 results = [result for result in results]
