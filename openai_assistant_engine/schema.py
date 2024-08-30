@@ -134,6 +134,8 @@ class Query(ObjectType):
     current_run = Field(
         CurrentRunType,
         required=True,
+        function_name=String(required=True),
+        task_uuid=String(required=True),
         assistant_id=String(required=True),
         thread_id=String(required=True),
         run_id=String(required=True),

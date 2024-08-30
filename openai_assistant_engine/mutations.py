@@ -8,7 +8,6 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
-
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -259,7 +258,7 @@ class DeleteToolCall(Mutation):
 
 
 class InsertUpdateFineTuningMessages(Mutation):
-    ok = Boolean()
+    async_task = Field(AsyncTaskType)
 
     class Arguments:
         assistant_type = String(required=False)
@@ -274,13 +273,13 @@ class InsertUpdateFineTuningMessages(Mutation):
         root: Any, info: Any, **kwargs: Dict[str, Any]
     ) -> "InsertUpdateFineTuningMessages":
         try:
-            ok = insert_update_fine_tuning_messages_handler(info, **kwargs)
+            async_task = insert_update_fine_tuning_messages_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
             raise e
 
-        return InsertUpdateFineTuningMessages(ok=ok)
+        return InsertUpdateFineTuningMessages(async_task=async_task)
 
 
 class InsertUpdateFineTuningMessage(Mutation):

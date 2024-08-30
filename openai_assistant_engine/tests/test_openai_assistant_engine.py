@@ -188,6 +188,11 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
             logger.info(response)
+            if response.get("errors"):
+                raise Exception(response["errors"])
+
+            function_name = response["data"]["askOpenAi"]["functionName"]
+            task_uuid = response["data"]["askOpenAi"]["taskUuid"]
             thread_id = response["data"]["askOpenAi"]["threadId"]
             current_run_id = response["data"]["askOpenAi"]["currentRunId"]
 
@@ -195,6 +200,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 payload = {
                     "query": document,
                     "variables": {
+                        "functionName": function_name,
+                        "taskUuid": task_uuid,
                         "assistantId": assistant_id,
                         "threadId": thread_id,
                         "runId": current_run_id,
@@ -206,6 +213,9 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                     self.openai_assistant_engine.open_assistant_graphql(**payload)
                 )
                 logger.info(response)
+                if response.get("errors"):
+                    raise Exception(response["errors"])
+
                 if response["data"]["currentRun"]["status"] == "completed":
                     break
 
@@ -220,6 +230,9 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
             logger.info(response)
+            if response.get("errors"):
+                raise Exception(response["errors"])
+
             last_message = response["data"]["lastMessage"]["message"]
 
             print(
@@ -310,6 +323,11 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
             logger.info(response)
+            if response.get("errors"):
+                raise Exception(response["errors"])
+
+            function_name = response["data"]["askOpenAi"]["functionName"]
+            task_uuid = response["data"]["askOpenAi"]["taskUuid"]
             thread_id = response["data"]["askOpenAi"]["threadId"]
             current_run_id = response["data"]["askOpenAi"]["currentRunId"]
 
@@ -317,6 +335,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 payload = {
                     "query": document,
                     "variables": {
+                        "functionName": function_name,
+                        "taskUuid": task_uuid,
                         "assistantId": assistant_id,
                         "threadId": thread_id,
                         "runId": current_run_id,
@@ -327,7 +347,10 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 response = json.loads(
                     self.openai_assistant_engine.open_assistant_graphql(**payload)
                 )
-                # logger.info(response)
+                logger.info(response)
+                if response.get("errors"):
+                    raise Exception(response["errors"])
+
                 if response["data"]["currentRun"]["status"] == "completed":
                     break
 
@@ -345,7 +368,10 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             response = json.loads(
                 self.openai_assistant_engine.open_assistant_graphql(**payload)
             )
-            # logger.info(response)
+            logger.info(response)
+            if response.get("errors"):
+                raise Exception(response["errors"])
+
             last_message = response["data"]["lastMessage"]["message"]
             print("AI:", last_message)
             play_base64_audio(text_to_base64_speech(last_message))
@@ -697,11 +723,17 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
             "assistantType": "conversation",
             "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+            "retrain": True,
+            # "trainedMessageUuids": [
+            #     "6666396519121752559",
+            #     "6695032152710910447",
+            #     "6695032157005877743",
+            # ],
         }
         payload = {
             "query": document,
@@ -798,7 +830,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_delete_async_task(self):
         variables = {
             "functionName": "async_openai_assistant_stream",
