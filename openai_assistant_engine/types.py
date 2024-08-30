@@ -5,7 +5,6 @@ from __future__ import print_function
 __author__ = "bibow"
 
 from graphene import Boolean, DateTime, Float, Int, List, ObjectType, String
-
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -14,6 +13,7 @@ class AskOpenAIType(ObjectType):
     assistant_id = String()
     thread_id = String()
     user_query = String()
+    function_name = String()
     task_uuid = String()
     current_run_id = String()
 

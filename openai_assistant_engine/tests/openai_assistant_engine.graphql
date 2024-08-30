@@ -2,6 +2,7 @@ fragment AskOpenAIInfo on AskOpenAIType {
     assistantId
     threadId
     userQuery
+    functionName
     taskUuid
     currentRunId
 }
@@ -217,12 +218,16 @@ query getLiveMessages(
 }
 
 query getCurrentRun(
+    $functionName: String!,
+    $taskUuid: String!,
     $assistantId: String!,
     $threadId: String!,
     $runId: String!,
     $updatedBy: String!
 ) {
     currentRun(
+        functionName: $functionName,
+        taskUuid: $taskUuid,
         assistantId: $assistantId,
         threadId: $threadId,
         runId: $runId,
@@ -614,7 +619,10 @@ mutation insertUpdateFineTuningMessages(
         weightupMessageUuids: $weightupMessageUuids,
         weightdownMessageUuids: $weightdownMessageUuids
     ) {
-        ok
+        asyncTask{
+            functionName
+            taskUuid
+        }
     }
 }
 
