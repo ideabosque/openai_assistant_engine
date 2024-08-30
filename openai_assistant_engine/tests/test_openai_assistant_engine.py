@@ -786,7 +786,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_insert_update_async_task(self):
         variables = {
             "functionName": "async_openai_assistant_stream",
-            "taskUuid": "5465856647682855407",
+            "taskUuid": "XXXXXXXXXXXXXXXXXXX",
             # "arguments": {},
             "status": "completed",
         }
@@ -802,7 +802,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_delete_async_task(self):
         variables = {
             "functionName": "async_openai_assistant_stream",
-            "taskUuid": "5465856647682855407",
+            "taskUuid": "XXXXXXXXXXXXXXXXXXX",
         }
         payload = {
             "query": document,
@@ -816,7 +816,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_async_task(self):
         variables = {
             "functionName": "async_openai_assistant_stream",
-            "taskUuid": "5465856647682855407",
+            "taskUuid": "XXXXXXXXXXXXXXXXXXX",
         }
         payload = {
             "query": document,

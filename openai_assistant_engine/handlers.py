@@ -174,12 +174,41 @@ def async_task_decorator() -> Callable:
         @functools.wraps(original_function)
         def wrapper_function(*args: List, **kwargs: Dict[str, any]) -> Any:
             function_name = original_function.__name__
+            task_uuid = args[1]
             try:
-                ## insert an entry into sync_tasks table.
+                args[0].context.get("logger").info(
+                    f"task_uuid: {task_uuid} is started at {time.strftime('%X')}."
+                )
 
-                original_function(*args, **kwargs)
+                ## insert an entry into sync_tasks table.
+                insert_update_async_task_handler(
+                    args[0],
+                    **{
+                        "function_name": function_name,
+                        "task_uuid": task_uuid,
+                        "arguments": kwargs,
+                    },
+                )
+
+                result = original_function(*args, **kwargs)
+                async_task = {
+                    "function_name": function_name,
+                    "task_uuid": task_uuid,
+                    "status": "completed",
+                }
+
+                if result is not None:
+                    async_task["result"] = Utility.json_dumps(result)
 
                 ## Update the status for the entry.
+                insert_update_async_task_handler(
+                    args[0],
+                    **async_task,
+                )
+
+                args[0].context.get("logger").info(
+                    f"task_uuid: {task_uuid} is completed at {time.strftime('%X')}."
+                )
 
                 return
             except Exception as e:
@@ -187,6 +216,15 @@ def async_task_decorator() -> Callable:
                 args[0].context.get("logger").error(log)
 
                 ## Update the status with log for the entry.
+                insert_update_async_task_handler(
+                    args[0],
+                    **{
+                        "function_name": function_name,
+                        "task_uuid": task_uuid,
+                        "status": "fail",
+                        "log": log,
+                    },
+                )
 
         return wrapper_function
 
@@ -464,8 +502,10 @@ def resolve_last_message_handler(
         raise e
 
 
+@async_task_decorator()
 def async_openai_assistant_stream(
     info: ResolveInfo,
+    task_uuid: str,
     queue: Queue,
     arguments: Dict[str, Any],
 ) -> None:
@@ -486,15 +526,16 @@ def get_current_run_id_and_start_async_task(
     **arguments: Dict[str, Any],
 ) -> str:
     try:
+        task_uuid = str(uuid.uuid1().int >> 64)
         queue = Queue()
         stream_thread = threading.Thread(
             target=async_openai_assistant_stream,
-            args=(info, queue, arguments),
+            args=(info, task_uuid, queue, arguments),
         )
         stream_thread.start()
         q = queue.get()
         if q["name"] == "current_run_id":
-            return q["value"]
+            return task_uuid, q["value"]
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
@@ -528,7 +569,7 @@ def resolve_ask_open_ai_handler(
             message["thread_id"] = thread_id
             client.beta.threads.messages.create(**message)
 
-        current_run_id = get_current_run_id_and_start_async_task(
+        task_uuid, current_run_id = get_current_run_id_and_start_async_task(
             info,
             **{
                 "thread_id": thread_id,
@@ -542,6 +583,7 @@ def resolve_ask_open_ai_handler(
             assistant_id=kwargs["assistant_id"],
             thread_id=thread_id,
             user_query=kwargs["user_query"],
+            task_uuid=task_uuid,
             current_run_id=current_run_id,
         )
 
@@ -1518,6 +1560,7 @@ def resolve_async_task_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any])
         "hash_key": "function_name",
         "range_key": "task_uuid",
     },
+    range_key_required=True,
     model_funct=get_async_task,
     count_funct=get_async_task_count,
     type_funct=get_async_task_type,
@@ -1545,8 +1588,8 @@ def insert_update_async_task_handler(
     ]
     if kwargs.get("status") is not None:
         actions.append(AsyncTaskModel.status.set(kwargs["status"]))
-    if kwargs.get("results") is not None:
-        actions.append(AsyncTaskModel.results.set(kwargs["results"]))
+    if kwargs.get("result") is not None:
+        actions.append(AsyncTaskModel.result.set(kwargs["result"]))
     if kwargs.get("log") is not None:
         actions.append(AsyncTaskModel.log.set(kwargs["log"]))
     async_task.update(actions=actions)
