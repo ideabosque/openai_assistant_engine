@@ -263,6 +263,8 @@ class InsertUpdateFineTuningMessages(Mutation):
     class Arguments:
         assistant_type = String(required=False)
         assistant_id = String(required=False)
+        from_date = DateTime(required=False)
+        days = Int(required=False)
         retrain = Boolean(required=False)
         trained_message_uuids = List(String, required=False)
         weightup_message_uuids = List(String, required=False)

@@ -606,6 +606,8 @@ query getFineTuningMessageList(
 mutation insertUpdateFineTuningMessages(
     $assistantType: String,
     $assistantId: String,
+    $fromDate: DateTime,
+    $days: Int,
     $retrain: Boolean,
     $trainedMessageUuids: [String],
     $weightupMessageUuids: [String],
@@ -614,6 +616,8 @@ mutation insertUpdateFineTuningMessages(
     insertUpdateFineTuningMessages(
         assistantType: $assistantType,
         assistantId: $assistantId,
+        fromDate: $fromDate,
+        days: $days,
         retrain: $retrain,
         trainedMessageUuids: $trainedMessageUuids,
         weightupMessageUuids: $weightupMessageUuids,
