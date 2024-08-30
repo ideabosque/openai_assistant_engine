@@ -2,6 +2,7 @@ fragment AskOpenAIInfo on AskOpenAIType {
     assistantId
     threadId
     userQuery
+    taskUuid
     currentRunId
 }
 
@@ -140,7 +141,7 @@ fragment AsyncTaskInfo on AsyncTaskType {
     taskUuid
     arguments
     status
-    results
+    result
     log
     createdAt
     updatedAt
@@ -689,10 +690,10 @@ query getAsyncTaskList(
 
 mutation insertUpdateAsyncTask(
     $functionName: String!,
-    $taskUuid: String,
+    $taskUuid: String!,
     $arguments: JSON,
     $status: String,
-    $results: JSON,
+    $result: String,
     $log: String
 ) {
     insertUpdateAsyncTask(
@@ -700,7 +701,7 @@ mutation insertUpdateAsyncTask(
         taskUuid: $taskUuid,
         arguments: $arguments,
         status: $status,
-        results: $results,
+        result: $result,
         log: $log
     ) {
         asyncTask{

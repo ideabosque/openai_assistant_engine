@@ -8,6 +8,7 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
+
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -339,10 +340,10 @@ class InsertUpdateAsyncTask(Mutation):
 
     class Arguments:
         function_name = String(required=True)
-        task_uuid = String(required=False)
+        task_uuid = String(required=True)
         arguments = JSON(required=False)
         status = String(required=False)
-        results = JSON(required=False)
+        result = String(required=False)
         log = String(required=False)
 
     @staticmethod
