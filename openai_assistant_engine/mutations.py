@@ -26,7 +26,7 @@ from .handlers import (
     insert_update_message_handler,
     insert_update_thread_handler,
     insert_update_tool_call_handler,
-    upload_fine_tuning_file_handler,
+    upload_fine_tune_file_handler,
 )
 from .types import (
     AssistantType,
@@ -258,8 +258,8 @@ class DeleteToolCall(Mutation):
         return DeleteToolCall(ok=ok)
 
 
-class UploadFineTuningFile(Mutation):
-    fine_tuning_file = Field(OpenAIFileType)
+class UploadFineTuneFile(Mutation):
+    fine_tune_file = Field(OpenAIFileType)
 
     class Arguments:
         assistant_id = String(required=True)
@@ -267,17 +267,15 @@ class UploadFineTuningFile(Mutation):
         to_date = DateTime(required=False)
 
     @staticmethod
-    def mutate(
-        root: Any, info: Any, **kwargs: Dict[str, Any]
-    ) -> "UploadFineTuningFile":
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "UploadFineTuneFile":
         try:
-            fine_tuning_file = upload_fine_tuning_file_handler(info, **kwargs)
+            fine_tune_file = upload_fine_tune_file_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
             raise e
 
-        return UploadFineTuningFile(fine_tuning_file=fine_tuning_file)
+        return UploadFineTuneFile(fine_tune_file=fine_tune_file)
 
 
 class InsertUpdateFineTuningMessages(Mutation):
