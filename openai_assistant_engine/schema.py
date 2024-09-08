@@ -8,7 +8,16 @@ import time
 from typing import Any, Dict
 from typing import List as Typing_List
 
-from graphene import Boolean, Field, Int, List, ObjectType, ResolveInfo, String
+from graphene import (
+    Boolean,
+    DateTime,
+    Field,
+    Int,
+    List,
+    ObjectType,
+    ResolveInfo,
+    String,
+)
 from silvaengine_utility import JSON
 
 from .mutations import (
@@ -219,7 +228,8 @@ class Query(ObjectType):
         thread_id=String(),
         roles=List(String),
         trained=Boolean(),
-        timestamp=Int(),
+        from_date=DateTime(),
+        to_date=DateTime(),
     )
 
     async_task = Field(

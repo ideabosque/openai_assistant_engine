@@ -1229,7 +1229,27 @@ def resolve_fine_tuning_message_list_handler(
     thread_id = kwargs.get("thread_id")
     roles = kwargs.get("roles")
     trained = kwargs.get("trained")
-    timestamp = kwargs.get("timestamp")
+    from_date = kwargs.get("from_date")
+    to_date = kwargs.get("to_date")
+    if from_date is not None:
+        # Convert the date to UTC
+        utc_from_date = pendulum.instance(from_date).in_timezone("UTC")
+
+        # Convert the UTC date to a Unix timestamp
+        from_timestamp = int(time.mktime(utc_from_date.timetuple()))
+
+    if to_date is None:
+        # Get current UTC time using pendulum
+        current_utc = pendulum.now("UTC")
+
+        # Convert the current UTC time to a Unix timestamp
+        to_timestamp = int(time.mktime(current_utc.timetuple()))
+    else:
+        # Convert the date to UTC
+        utc_to_date = pendulum.instance(to_date).in_timezone("UTC")
+
+        # Convert the UTC date to a Unix timestamp
+        to_timestamp = int(time.mktime(utc_to_date.timetuple()))
 
     args = []
     inquiry_funct = FineTuningMessageModel.scan
@@ -1241,9 +1261,11 @@ def resolve_fine_tuning_message_list_handler(
             inquiry_funct = FineTuningMessageModel.thread_id_index.query
             args[1] = FineTuningMessageModel.thread_id == thread_id
             count_funct = FineTuningMessageModel.thread_id_index.count
-        if timestamp:
+        if from_date and to_date:
             inquiry_funct = FineTuningMessageModel.timestamp_index.query
-            args[1] = FineTuningMessageModel.timestamp == timestamp
+            args[1] = FineTuningMessageModel.timestamp.between(
+                from_timestamp, to_timestamp
+            )
             count_funct = FineTuningMessageModel.timestamp_index.count
 
     the_filters = None

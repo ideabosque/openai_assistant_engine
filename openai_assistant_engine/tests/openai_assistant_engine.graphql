@@ -588,7 +588,8 @@ query getFineTuningMessageList(
     $threadId: String,
     $roles: [String],
     $trained: Boolean,
-    $timestamp: Int
+    $fromDate: DateTime,
+    $toDate: DateTime
 ) {
     fineTuningMessageList(
         pageNumber: $pageNumber,
@@ -597,7 +598,8 @@ query getFineTuningMessageList(
         threadId: $threadId,
         roles: $roles,
         trained: $trained,
-        timestamp: $timestamp
+        fromDate: $fromDate,
+        toDate: $toDate
     ) {
         ...FineTuningMessageListInfo
     }
