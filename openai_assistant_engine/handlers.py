@@ -1223,7 +1223,7 @@ def resolve_fine_tuning_message_handler(
     )
 
 
-def upload_fine_tuning_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
     try:
         assistant_id = kwargs["assistant_id"]
         from_date = kwargs["from_date"]

@@ -802,7 +802,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info(response)
 
     # @unittest.skip("demonstrating skipping")
-    def test_graphql_upload_fine_tuning_file(self):
+    def test_graphql_upload_fine_tune_file(self):
         variables = {
             "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
             "fromDate": "2024-05-13T23:23:32.000000+0800",
@@ -810,7 +810,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         payload = {
             "query": document,
             "variables": variables,
-            "operation_name": "uploadFineTuningFile",
+            "operation_name": "uploadFineTuneFile",
         }
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
