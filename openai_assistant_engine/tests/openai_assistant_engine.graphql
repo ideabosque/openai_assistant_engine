@@ -582,11 +582,13 @@ query getFineTuningMessage(
 }
 
 mutation uploadFineTuneFile(
+    $assistantType: String!,
     $assistantId: String!,
     $fromDate: DateTime!,
     $toDate: DateTime
 ) {
     uploadFineTuneFile(
+        assistantType: $assistantType,
         assistantId: $assistantId,
         fromDate: $fromDate,
         toDate: $toDate
