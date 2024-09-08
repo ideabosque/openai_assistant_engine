@@ -6,7 +6,6 @@ __author__ = "bibow"
 
 import base64
 import functools
-import io
 import json
 import logging
 import threading
@@ -61,7 +60,6 @@ from .types import (
 )
 
 client = None
-aws_s3 = None
 bucket_name = None
 fine_tuning_data_days_limit = None
 
@@ -73,23 +71,6 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             api_key=setting["openai_api_key"],
         )
 
-        # Set up AWS credentials in Boto3
-        if (
-            setting.get("region_name")
-            and setting.get("aws_access_key_id")
-            and setting.get("aws_secret_access_key")
-        ):
-            aws_s3 = boto3.client(
-                "s3",
-                region_name=setting.get("region_name"),
-                aws_access_key_id=setting.get("aws_access_key_id"),
-                aws_secret_access_key=setting.get("aws_secret_access_key"),
-            )
-        else:
-            aws_s3 = boto3.client(
-                "s3",
-            )
-        bucket_name = setting["bucket_name"]
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
 
     except Exception as e:
@@ -1242,7 +1223,7 @@ def resolve_fine_tuning_message_handler(
     )
 
 
-def resolve_fine_tuning_messages_file_handler(
+def upload_fine_tuning_messages_file_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> str:
     try:
@@ -1375,29 +1356,28 @@ def resolve_fine_tuning_messages_file_handler(
             # Append the sorted messages to the thread_fine_tuning_messages list
             thread_fine_tuning_messages.append({"messages": messages})
 
-        s3_key = f"{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl"
-        # Create a StringIO object for the JSONL data
-        string_buffer = io.StringIO()
-
-        # Write each dictionary as a JSON object per line in the StringIO stream
-        for thread_fine_tuning_message in thread_fine_tuning_messages:
-            json_line = json.dumps(thread_fine_tuning_message) + "\n"
-            string_buffer.write(json_line)
-
-        # Move the cursor of the StringIO object to the start of the stream
-        string_buffer.seek(0)
-
-        # Convert the entire StringIO buffer into bytes
-        byte_buffer = io.BytesIO(string_buffer.getvalue().encode("utf-8"))
-
-        # Upload the JSONL data to S3
-        aws_s3.upload_fileobj(byte_buffer, bucket_name, s3_key)
-
-        info.context.get("logger").info(
-            f"JSONL data successfully uploaded to {bucket_name}/{s3_key}"
+        # Step 1: Create the JSONL formatted string
+        jsonl_content = "\n".join(
+            [
+                json.dumps(thread_fine_tuning_message)
+                for thread_fine_tuning_message in thread_fine_tuning_messages
+            ]
         )
 
-        return s3_key
+        # Step 2: Encode the JSONL string into bytes (UTF-8 encoding)
+        jsonl_bytes = jsonl_content.encode("utf-8")
+
+        # Step 3: Base64 encode the byte data
+        base64_encoded_content = base64.b64encode(jsonl_bytes)
+
+        return insert_file_handler(
+            info,
+            **{
+                "purpose": "fine-tune",
+                "filename": f"{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl",
+                "encoded_content": base64_encoded_content.decode("utf-8"),
+            },
+        )
 
     except Exception as e:
         log = traceback.format_exc()
