@@ -6,6 +6,8 @@ __author__ = "bibow"
 
 import base64
 import functools
+import io
+import json
 import logging
 import threading
 import time
@@ -15,6 +17,7 @@ from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
+import boto3
 import pendulum
 from graphene import ResolveInfo
 from httpx import Response
@@ -58,14 +61,37 @@ from .types import (
 )
 
 client = None
+aws_s3 = None
+bucket_name = None
+fine_tuning_data_days_limit = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client
+    global client, aws_s3, bucket_name, fine_tuning_data_days_limit
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
+
+        # Set up AWS credentials in Boto3
+        if (
+            setting.get("region_name")
+            and setting.get("aws_access_key_id")
+            and setting.get("aws_secret_access_key")
+        ):
+            aws_s3 = boto3.client(
+                "s3",
+                region_name=setting.get("region_name"),
+                aws_access_key_id=setting.get("aws_access_key_id"),
+                aws_secret_access_key=setting.get("aws_secret_access_key"),
+            )
+        else:
+            aws_s3 = boto3.client(
+                "s3",
+            )
+        bucket_name = setting["bucket_name"]
+        fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
+
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
@@ -1216,6 +1242,169 @@ def resolve_fine_tuning_message_handler(
     )
 
 
+def resolve_fine_tuning_messages_file_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> str:
+    try:
+        assistant_id = kwargs["assistant_id"]
+        from_date = kwargs["from_date"]
+        to_date = kwargs.get("to_date")
+
+        # Convert the date to UTC
+        utc_from_date = pendulum.instance(from_date).in_timezone("UTC")
+
+        # Convert the UTC date to a Unix timestamp
+        from_timestamp = int(time.mktime(utc_from_date.timetuple()))
+
+        utc_to_date = None
+        if to_date is not None:
+            utc_to_date = pendulum.instance(to_date).in_timezone("UTC")
+
+        if utc_to_date is None:
+            # Get current UTC time using pendulum
+            utc_to_date = pendulum.now("UTC")
+
+        # Convert the UTC date to a Unix timestamp
+        to_timestamp = int(time.mktime(utc_to_date.timetuple()))
+
+        results = FineTuningMessageModel.timestamp_index.query(
+            assistant_id,
+            FineTuningMessageModel.timestamp.between(from_timestamp, to_timestamp),
+            filter_condition=FineTuningMessageModel.trained == False,
+            attributes_to_get=["assistant_id", "message_uuid"],
+        )
+        keys_to_retrieve = [
+            (
+                result.assistant_id,
+                result.message_uuid,
+            )
+            for result in results
+        ]
+        # Batch get data
+        fine_tuning_messages = []
+
+        for fine_tuning_message in FineTuningMessageModel.batch_get(keys_to_retrieve):
+            fine_tuning_messages.append(
+                {
+                    "assistant_id": fine_tuning_message.assistant_id,
+                    "thread_id": fine_tuning_message.thread_id,
+                    "timestamp": fine_tuning_message.timestamp,
+                    "role": fine_tuning_message.role,
+                    "tool_calls": fine_tuning_message.tool_calls,
+                    "tool_call_id": fine_tuning_message.tool_call_id,
+                    "content": fine_tuning_message.content,
+                    "weight": fine_tuning_message.weight,
+                }
+            )
+
+        # Sort the messages by timestamp
+        fine_tuning_messages_sorted = sorted(
+            fine_tuning_messages, key=lambda x: x["timestamp"]
+        )
+
+        # Retrieve the distinct list of thread_ids, keeping order by timestamp
+        distinct_thread_ids_ordered = []
+        seen_thread_ids = set()
+
+        for fine_tuning_message in fine_tuning_messages_sorted:
+            if fine_tuning_message["thread_id"] not in seen_thread_ids:
+                distinct_thread_ids_ordered.append(fine_tuning_message["thread_id"])
+                seen_thread_ids.add(fine_tuning_message["thread_id"])
+
+        thread_fine_tuning_messages = []
+
+        # Loop through the distinct thread IDs
+        for thread_id in distinct_thread_ids_ordered:
+            info.context.get("logger").info(f"Thread Id: {thread_id}")
+            # Filter messages for the current thread ID
+            fine_tuning_messages_filtered = list(
+                filter(
+                    lambda x: x["thread_id"] == thread_id, fine_tuning_messages_sorted
+                )
+            )
+
+            # Sort by timestamp and ensure 'assistant' comes before 'tool' when timestamps are identical
+            fine_tuning_messages_filtered_sorted = sorted(
+                fine_tuning_messages_filtered,
+                key=lambda x: (
+                    x["timestamp"],
+                    0 if x["role"] == "assistant" else 1,
+                ),  # Assistant first if same timestamp
+            )
+
+            messages = []
+
+            for fine_tuning_message in fine_tuning_messages_filtered_sorted:
+                # For 'user' and 'system' roles, append message with content and timestamp
+                if fine_tuning_message["role"] in ["user", "system"]:
+                    messages.append(
+                        {
+                            "role": fine_tuning_message["role"],
+                            "content": fine_tuning_message["content"],
+                        }
+                    )
+
+                # For 'assistant' role, append with tool_calls if available, otherwise with content
+                if fine_tuning_message["role"] == "assistant":
+                    if fine_tuning_message.get("tool_calls"):
+                        messages.append(
+                            {
+                                "role": fine_tuning_message["role"],
+                                "tool_calls": fine_tuning_message["tool_calls"],
+                            }
+                        )
+                    else:
+                        messages.append(
+                            {
+                                "role": fine_tuning_message["role"],
+                                "content": fine_tuning_message["content"],
+                                "weight": fine_tuning_message["weight"],
+                            }
+                        )
+
+                # For 'tool' role, append message with tool_call_id and content
+                if fine_tuning_message["role"] == "tool":
+                    messages.append(
+                        {
+                            "role": fine_tuning_message["role"],
+                            "tool_call_id": fine_tuning_message["tool_call_id"],
+                            "content": fine_tuning_message["content"],
+                        }
+                    )
+
+            # Append the sorted messages to the thread_fine_tuning_messages list
+            thread_fine_tuning_messages.append({"messages": messages})
+
+        s3_key = f"{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl"
+        # Create a StringIO object for the JSONL data
+        string_buffer = io.StringIO()
+
+        # Write each dictionary as a JSON object per line in the StringIO stream
+        for thread_fine_tuning_message in thread_fine_tuning_messages:
+            json_line = json.dumps(thread_fine_tuning_message) + "\n"
+            string_buffer.write(json_line)
+
+        # Move the cursor of the StringIO object to the start of the stream
+        string_buffer.seek(0)
+
+        # Convert the entire StringIO buffer into bytes
+        byte_buffer = io.BytesIO(string_buffer.getvalue().encode("utf-8"))
+
+        # Upload the JSONL data to S3
+        aws_s3.upload_fileobj(byte_buffer, bucket_name, s3_key)
+
+        info.context.get("logger").info(
+            f"JSONL data successfully uploaded to {bucket_name}/{s3_key}"
+        )
+
+        return s3_key
+
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").exception(log)
+        raise e
+
+
 @monitor_decorator
 @resolve_list_decorator(
     attributes_to_get=["assistant_id", "message_uuid", "thread_id", "timestamp"],
@@ -1325,23 +1514,23 @@ def async_insert_update_fine_tuning_messages(
 
         # Step 1: Query the oae-threads table to get thread_id and run_id values
 
-        if kwargs.get("from_date") is None:
-            from_date = pendulum.now("UTC")
+        if kwargs.get("to_date") is None:
+            to_date = pendulum.now("UTC")
         else:
-            from_date = pendulum.parse(kwargs["from_date"]).in_tz("UTC")
+            to_date = pendulum.parse(kwargs["to_date"]).in_tz("UTC")
 
         # Ensure days is set and is not more than 7
         days = kwargs.get("days")
-        if days is None or days > 7:
-            days = 7
+        if days is None or days > fine_tuning_data_days_limit:
+            days = fine_tuning_data_days_limit
 
-        # Calculate to_date based on from_date and days
-        to_date = from_date.subtract(days=days)
+        # Calculate from_date based on to_date and days
+        from_date = to_date.subtract(days=days)
 
         threads = ThreadModel.query(
             kwargs["assistant_id"],
             None,
-            filter_condition=(ThreadModel.updated_at.between(to_date, from_date)),
+            filter_condition=(ThreadModel.updated_at.between(from_date, to_date)),
         )
 
         raw_fine_tuning_messages = []
@@ -1359,7 +1548,7 @@ def async_insert_update_fine_tuning_messages(
                     "assistant_id": kwargs["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
-                    "timestamp": int(time.mktime(thread.created_at.timetuple())),
+                    "timestamp": int(time.mktime(thread.created_at.timetuple())) - 100,
                     "role": "system",
                     "content": assistant.instructions,
                 }
