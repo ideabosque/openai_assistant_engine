@@ -1225,9 +1225,14 @@ def resolve_fine_tuning_message_handler(
 
 def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
     try:
+        assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
         from_date = kwargs["from_date"]
         to_date = kwargs.get("to_date")
+
+        assistant = get_assistant_type(
+            info, get_assistant(assistant_type, assistant_id)
+        )
 
         # Convert the date to UTC
         utc_from_date = pendulum.instance(from_date).in_timezone("UTC")
@@ -1352,7 +1357,9 @@ def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
                     )
 
             # Append the sorted messages to the thread_fine_tuning_messages list
-            thread_fine_tuning_messages.append({"messages": messages})
+            thread_fine_tuning_messages.append(
+                {"messages": messages, "tools": assistant.tools}
+            )
 
         # Step 1: Create the JSONL formatted string
         jsonl_content = "\n".join(

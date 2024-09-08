@@ -262,6 +262,7 @@ class UploadFineTuneFile(Mutation):
     fine_tune_file = Field(OpenAIFileType)
 
     class Arguments:
+        assistant_type = String(required=True)
         assistant_id = String(required=True)
         from_date = DateTime(required=True)
         to_date = DateTime(required=False)

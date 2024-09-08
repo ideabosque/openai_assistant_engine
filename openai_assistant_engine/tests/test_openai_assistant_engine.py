@@ -804,6 +804,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     # @unittest.skip("demonstrating skipping")
     def test_graphql_upload_fine_tune_file(self):
         variables = {
+            "assistantType": "conversation",
             "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
             "fromDate": "2024-05-13T23:23:32.000000+0800",
         }
