@@ -581,17 +581,17 @@ query getFineTuningMessage(
     }
 }
 
-mutation uploadFineTuningMessagesFile(
+mutation uploadFineTuningFile(
     $assistantId: String!,
     $fromDate: DateTime!,
     $toDate: DateTime
 ) {
-    uploadFineTuningMessagesFile(
+    uploadFineTuningFile(
         assistantId: $assistantId,
         fromDate: $fromDate,
         toDate: $toDate
     ) {
-        fineTuningMessagesFile{
+        fineTuningFile{
             ...OpenAIFileInfo
         }
     }

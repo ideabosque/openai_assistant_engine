@@ -36,7 +36,7 @@ from .mutations import (
     InsertUpdateMessage,
     InsertUpdateThread,
     InsertUpdateToolCall,
-    UploadFineTuningMessagesFile,
+    UploadFineTuningFile,
 )
 from .queries import (
     resolve_ask_open_ai,
@@ -351,7 +351,7 @@ class Mutations(ObjectType):
     delete_message = DeleteMessage.Field()
     insert_update_tool_call = InsertUpdateToolCall.Field()
     delete_tool_call = DeleteToolCall.Field()
-    upload_fine_tuning_messages_file = UploadFineTuningMessagesFile.Field()
+    upload_fine_tuning_file = UploadFineTuningFile.Field()
     insert_update_fine_tuning_messages = InsertUpdateFineTuningMessages.Field()
     insert_update_fine_tuning_message = InsertUpdateFineTuningMessage.Field()
     delete_fine_tuning_message = DeleteFineTuningMessage.Field()
