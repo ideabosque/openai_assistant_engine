@@ -19,6 +19,7 @@ from .handlers import (
     resolve_files_handler,
     resolve_fine_tuning_message_handler,
     resolve_fine_tuning_message_list_handler,
+    resolve_fine_tuning_messages_file_handler,
     resolve_last_message_handler,
     resolve_live_messages_handler,
     resolve_message_handler,
@@ -124,6 +125,12 @@ def resolve_fine_tuning_message(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> FineTuningMessageType:
     return resolve_fine_tuning_message_handler(info, **kwargs)
+
+
+def resolve_fine_tuning_messages_file(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> str:
+    return resolve_fine_tuning_messages_file_handler(info, **kwargs)
 
 
 def resolve_fine_tuning_message_list(

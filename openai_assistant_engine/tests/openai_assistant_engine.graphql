@@ -581,6 +581,18 @@ query getFineTuningMessage(
     }
 }
 
+query getFineTuningMessagesFile(
+    $assistantId: String!,
+    $fromDate: DateTime!,
+    $toDate: DateTime
+) {
+    fineTuningMessagesFile(
+        assistantId: $assistantId,
+        fromDate: $fromDate,
+        toDate: $toDate
+    )
+}
+
 query getFineTuningMessageList(
     $pageNumber: Int, 
     $limit: Int,
@@ -608,7 +620,7 @@ query getFineTuningMessageList(
 mutation insertUpdateFineTuningMessages(
     $assistantType: String,
     $assistantId: String,
-    $fromDate: DateTime,
+    $toDate: DateTime,
     $days: Int,
     $retrain: Boolean,
     $trainedMessageUuids: [String],
@@ -618,7 +630,7 @@ mutation insertUpdateFineTuningMessages(
     insertUpdateFineTuningMessages(
         assistantType: $assistantType,
         assistantId: $assistantId,
-        fromDate: $fromDate,
+        toDate: $toDate,
         days: $days,
         retrain: $retrain,
         trainedMessageUuids: $trainedMessageUuids,

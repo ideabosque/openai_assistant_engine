@@ -29,6 +29,8 @@ setting = {
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
     "openai_api_key": os.getenv("openai_api_key"),
+    "bucket_name": os.getenv("bucket_name"),
+    "fine_tuning_data_days_limit": os.getenv("fine_tuning_data_days_limit"),
     "whisper_model": os.getenv("whisper_model"),
     "tts_model": os.getenv("tts_model"),
     "assistant_voice": os.getenv("assistant_voice"),
@@ -800,6 +802,20 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info(response)
 
     # @unittest.skip("demonstrating skipping")
+    def test_graphql_fine_tuning_messages_file(self):
+        variables = {
+            "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+            "fromDate": "2024-05-13T23:23:32.000000+0800",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "getFineTuningMessagesFile",
+        }
+        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_fine_tuning_message_list(self):
         variables = {
             "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",

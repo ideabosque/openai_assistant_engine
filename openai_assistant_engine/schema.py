@@ -48,6 +48,7 @@ from .queries import (
     resolve_files,
     resolve_fine_tuning_message,
     resolve_fine_tuning_message_list,
+    resolve_fine_tuning_messages_file,
     resolve_last_message,
     resolve_live_messages,
     resolve_message,
@@ -220,6 +221,13 @@ class Query(ObjectType):
         message_uuid=String(required=True),
     )
 
+    fine_tuning_messages_file = String(
+        required=True,
+        assistant_id=String(required=True),
+        from_date=DateTime(required=True),
+        to_date=DateTime(required=False),
+    )
+
     fine_tuning_message_list = Field(
         FineTuningMessageListType,
         page_number=Int(),
@@ -322,6 +330,11 @@ class Query(ObjectType):
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
     ) -> FineTuningMessageType:
         return resolve_fine_tuning_message(info, **kwargs)
+
+    def resolve_fine_tuning_messages_file(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> str:
+        return resolve_fine_tuning_messages_file(info, **kwargs)
 
     def resolve_fine_tuning_message_list(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
