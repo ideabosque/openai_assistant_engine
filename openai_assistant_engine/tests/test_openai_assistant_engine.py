@@ -723,7 +723,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
             "assistantType": "conversation",
@@ -799,12 +799,15 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_fine_tuning_message_list(self):
         variables = {
-            "assistantId": "asst_BUoN3ONJdMzqVpvi0wrplGPj",
+            "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+            "fromDate": "2024-05-13T23:23:32.000000+0800",
+            "roles": ["user", "assistant", "tool"],
+            # "roles": ["system"],
             "pageNumber": 1,
-            "limit": 100,
+            "limit": 10,
         }
         payload = {
             "query": document,
