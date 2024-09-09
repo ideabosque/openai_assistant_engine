@@ -16,7 +16,6 @@ from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
-import boto3
 import pendulum
 from graphene import ResolveInfo
 from httpx import Response
@@ -1271,6 +1270,7 @@ def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
             fine_tuning_messages.append(
                 {
                     "assistant_id": fine_tuning_message.assistant_id,
+                    "message_uuid": fine_tuning_message.message_uuid,
                     "thread_id": fine_tuning_message.thread_id,
                     "timestamp": fine_tuning_message.timestamp,
                     "role": fine_tuning_message.role,
@@ -1281,6 +1281,10 @@ def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
                 }
             )
 
+        trained_message_uuids = [
+            fine_tuning_message["message_uuid"]
+            for fine_tuning_message in fine_tuning_messages
+        ]
         # Sort the messages by timestamp
         fine_tuning_messages_sorted = sorted(
             fine_tuning_messages, key=lambda x: x["timestamp"]
@@ -1375,7 +1379,7 @@ def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
         # Step 3: Base64 encode the byte data
         base64_encoded_content = base64.b64encode(jsonl_bytes)
 
-        return insert_file_handler(
+        fine_tune_file = insert_file_handler(
             info,
             **{
                 "purpose": "fine-tune",
@@ -1383,6 +1387,18 @@ def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
                 "encoded_content": base64_encoded_content.decode("utf-8"),
             },
         )
+
+        async_task = insert_update_fine_tuning_messages_handler(
+            info,
+            **{
+                "assistant_type": assistant_type,
+                "assistant_id": assistant_id,
+                "trained_message_uuids": trained_message_uuids,
+            },
+        )
+        info.context.get("logger").info(async_task)
+
+        return fine_tune_file
 
     except Exception as e:
         log = traceback.format_exc()
