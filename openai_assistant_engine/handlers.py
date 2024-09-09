@@ -395,7 +395,7 @@ def resolve_files_handler(
     ]
 
 
-def insert_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+def insert_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
     purpose = kwargs["purpose"]
     encoded_content = kwargs["encoded_content"]
     # Decode the Base64 string
@@ -1222,7 +1222,9 @@ def resolve_fine_tuning_message_handler(
     )
 
 
-def upload_fine_tune_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+def upload_fine_tune_file_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> OpenAIFileType:
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
