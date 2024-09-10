@@ -8,6 +8,7 @@ import base64
 import functools
 import json
 import logging
+import random
 import threading
 import time
 import traceback
@@ -61,16 +62,18 @@ from .types import (
 client = None
 bucket_name = None
 fine_tuning_data_days_limit = None
+training_data_rate = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, aws_s3, bucket_name, fine_tuning_data_days_limit
+    global client, aws_s3, bucket_name, fine_tuning_data_days_limit, training_data_rate
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
 
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
+        training_data_rate = float(setting.get("training_data_rate", 0.6))
 
     except Exception as e:
         log = traceback.format_exc()
@@ -1224,7 +1227,7 @@ def resolve_fine_tuning_message_handler(
 
 def upload_fine_tune_file_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> OpenAIFileType:
+) -> List[OpenAIFileType]:
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
@@ -1367,26 +1370,55 @@ def upload_fine_tune_file_handler(
                 {"messages": messages, "tools": assistant.tools}
             )
 
+        # Randomly assign to training or validation dataset (e.g., 80% chance for training, 20% for validation)
+        training_data = []
+        validation_data = []
+        for thread_fine_tuning_message in thread_fine_tuning_messages:
+            if random.random() < 0.8:
+                training_data.append(thread_fine_tuning_message)
+            else:
+                validation_data.append(thread_fine_tuning_message)
+
         # Step 1: Create the JSONL formatted string
-        jsonl_content = "\n".join(
+        training_jsonl_content = "\n".join(
             [
                 json.dumps(thread_fine_tuning_message)
-                for thread_fine_tuning_message in thread_fine_tuning_messages
+                for thread_fine_tuning_message in training_data
+            ]
+        )
+
+        validation_jsonl_content = "\n".join(
+            [
+                json.dumps(thread_fine_tuning_message)
+                for thread_fine_tuning_message in validation_data
             ]
         )
 
         # Step 2: Encode the JSONL string into bytes (UTF-8 encoding)
-        jsonl_bytes = jsonl_content.encode("utf-8")
+        training_jsonl_bytes = training_jsonl_content.encode("utf-8")
+
+        validation_jsonl_bytes = validation_jsonl_content.encode("utf-8")
 
         # Step 3: Base64 encode the byte data
-        base64_encoded_content = base64.b64encode(jsonl_bytes)
+        traning_base64_encoded_content = base64.b64encode(training_jsonl_bytes)
 
-        fine_tune_file = insert_file_handler(
+        validation_base64_encoded_content = base64.b64encode(validation_jsonl_bytes)
+
+        training_fine_tune_file = insert_file_handler(
             info,
             **{
                 "purpose": "fine-tune",
-                "filename": f"{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl",
-                "encoded_content": base64_encoded_content.decode("utf-8"),
+                "filename": f"training_{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl",
+                "encoded_content": traning_base64_encoded_content.decode("utf-8"),
+            },
+        )
+
+        validation_fine_tune_file = insert_file_handler(
+            info,
+            **{
+                "purpose": "fine-tune",
+                "filename": f"validation_{assistant_id}-{str(uuid.uuid1().int >> 64)}.jsonl",
+                "encoded_content": validation_base64_encoded_content.decode("utf-8"),
             },
         )
 
@@ -1400,7 +1432,7 @@ def upload_fine_tune_file_handler(
         )
         info.context.get("logger").info(async_task)
 
-        return fine_tune_file
+        return [training_fine_tune_file, validation_fine_tune_file]
 
     except Exception as e:
         log = traceback.format_exc()
@@ -1655,6 +1687,7 @@ def async_insert_update_fine_tuning_messages(
 
             raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
 
+        retrain_message_uuids = []
         with FineTuningMessageModel.batch_write() as batch:
             for raw_fine_tuning_message in raw_fine_tuning_messages:
                 results = FineTuningMessageModel.timestamp_index.query(
@@ -1674,12 +1707,18 @@ def async_insert_update_fine_tuning_messages(
                 if kwargs.get("retrain") is None:
                     continue
 
-                fine_tuning_message = get_fine_tuning_message(
-                    kwargs["assistant_id"], results[0].message_uuid
-                )
-                if kwargs["retrain"] and fine_tuning_message.trained:
-                    fine_tuning_message.trained = False
-                    batch.save(fine_tuning_message)
+                if kwargs["retrain"]:
+                    retrain_message_uuids.append(results[0].message_uuid)
+
+        for retrain_message_uuid in retrain_message_uuids:
+            fine_tuning_message = get_fine_tuning_message(
+                kwargs["assistant_id"], retrain_message_uuid
+            )
+            if fine_tuning_message.trained is False:
+                continue
+
+            fine_tuning_message.trained = False
+            fine_tuning_message.save()
 
         return True
     except Exception as e:

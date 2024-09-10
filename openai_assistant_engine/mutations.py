@@ -8,6 +8,7 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
+
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -259,7 +260,7 @@ class DeleteToolCall(Mutation):
 
 
 class UploadFineTuneFile(Mutation):
-    fine_tune_file = Field(OpenAIFileType)
+    fine_tune_files = List(OpenAIFileType)
 
     class Arguments:
         assistant_type = String(required=True)
@@ -270,13 +271,13 @@ class UploadFineTuneFile(Mutation):
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "UploadFineTuneFile":
         try:
-            fine_tune_file = upload_fine_tune_file_handler(info, **kwargs)
+            fine_tune_files = upload_fine_tune_file_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
             raise e
 
-        return UploadFineTuneFile(fine_tune_file=fine_tune_file)
+        return UploadFineTuneFile(fine_tune_files=fine_tune_files)
 
 
 class InsertUpdateFineTuningMessages(Mutation):

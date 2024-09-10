@@ -31,6 +31,7 @@ setting = {
     "openai_api_key": os.getenv("openai_api_key"),
     "bucket_name": os.getenv("bucket_name"),
     "fine_tuning_data_days_limit": os.getenv("fine_tuning_data_days_limit"),
+    "training_data_rate": os.getenv("training_data_rate"),
     "whisper_model": os.getenv("whisper_model"),
     "tts_model": os.getenv("tts_model"),
     "assistant_voice": os.getenv("assistant_voice"),
