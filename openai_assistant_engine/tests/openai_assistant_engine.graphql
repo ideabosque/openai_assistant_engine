@@ -593,7 +593,7 @@ mutation uploadFineTuneFile(
         fromDate: $fromDate,
         toDate: $toDate
     ) {
-        fineTuneFile{
+        fineTuneFiles{
             ...OpenAIFileInfo
         }
     }
