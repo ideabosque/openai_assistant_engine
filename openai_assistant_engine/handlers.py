@@ -4,7 +4,9 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+import asyncio
 import base64
+import concurrent.futures
 import functools
 import json
 import logging
@@ -22,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -29,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -1503,6 +1506,71 @@ def resolve_fine_tuning_message_list_handler(
     return inquiry_funct, count_funct, args
 
 
+async def async_insert_update_fine_tuning_message(
+    assistant_id, retrain, raw_fine_tuning_message
+):
+    results = FineTuningMessageModel.timestamp_index.query(
+        assistant_id,
+        FineTuningMessageModel.timestamp == raw_fine_tuning_message["timestamp"],
+        filter_condition=(
+            FineTuningMessageModel.role == raw_fine_tuning_message["role"]
+        ),
+        attributes_to_get=["assistant_id", "message_uuid"],
+        limit=1,
+    )
+
+    results = [result for result in results]
+    if len(results) == 0:
+        FineTuningMessageModel(**raw_fine_tuning_message).save()
+        return raw_fine_tuning_message["message_uuid"]
+
+    if retrain is False:
+        return raw_fine_tuning_message["message_uuid"]
+
+    fine_tuning_message = get_fine_tuning_message(assistant_id, results[0].message_uuid)
+    if fine_tuning_message.trained is False:
+        return raw_fine_tuning_message["message_uuid"]
+
+    fine_tuning_message.trained = False
+    fine_tuning_message.save()
+    return raw_fine_tuning_message["message_uuid"]
+
+
+# Use an asyncio task to handle the event loop instead of running asyncio.run() inside threads
+async def task_wrapper(assistant_id, retrain, raw_fine_tuning_message):
+    return await async_insert_update_fine_tuning_message(
+        assistant_id, retrain, raw_fine_tuning_message
+    )
+
+
+async def process_task_with_semaphore(semaphore, *args):
+    async with semaphore:
+        return await task_wrapper(*args)
+
+
+async def process_tasks(raw_fine_tuning_messages, kwargs):
+    tasks = []
+    max_concurrent_tasks = 50
+    semaphore = asyncio.Semaphore(max_concurrent_tasks)  # Limit concurrent tasks
+
+    # Loop through raw fine-tuning messages and create tasks
+    for raw_fine_tuning_message in raw_fine_tuning_messages:
+        # Use semaphore to control concurrency
+        tasks.append(
+            process_task_with_semaphore(
+                semaphore,
+                kwargs["assistant_id"],
+                kwargs.get("retrain", False),
+                raw_fine_tuning_message,
+            )
+        )
+
+    # Run all tasks concurrently, but respecting the semaphore limit
+    results = await asyncio.gather(*tasks)
+
+    return results
+
+
 @async_task_decorator()
 def async_insert_update_fine_tuning_messages(
     info: ResolveInfo, task_uuid: str, kwargs: Dict[str, Any]
@@ -1687,38 +1755,8 @@ def async_insert_update_fine_tuning_messages(
 
             raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
 
-        retrain_message_uuids = []
-        with FineTuningMessageModel.batch_write() as batch:
-            for raw_fine_tuning_message in raw_fine_tuning_messages:
-                results = FineTuningMessageModel.timestamp_index.query(
-                    kwargs["assistant_id"],
-                    FineTuningMessageModel.timestamp
-                    == raw_fine_tuning_message["timestamp"],
-                    filter_condition=(
-                        FineTuningMessageModel.role == raw_fine_tuning_message["role"]
-                    ),
-                )
-
-                results = [result for result in results]
-                if len(results) == 0:
-                    batch.save(FineTuningMessageModel(**raw_fine_tuning_message))
-                    continue
-
-                if kwargs.get("retrain") is None:
-                    continue
-
-                if kwargs["retrain"]:
-                    retrain_message_uuids.append(results[0].message_uuid)
-
-        for retrain_message_uuid in retrain_message_uuids:
-            fine_tuning_message = get_fine_tuning_message(
-                kwargs["assistant_id"], retrain_message_uuid
-            )
-            if fine_tuning_message.trained is False:
-                continue
-
-            fine_tuning_message.trained = False
-            fine_tuning_message.save()
+        # Run the tasks using asyncio and control concurrency
+        asyncio.run(process_tasks(raw_fine_tuning_messages, kwargs))
 
         return True
     except Exception as e:
