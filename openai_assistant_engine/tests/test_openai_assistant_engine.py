@@ -157,16 +157,16 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # print("Hello! I am an AI assistant. Please provide your detail location?")
-        # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
         # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
         # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
-        assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
+        # assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
@@ -726,7 +726,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.open_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
             "assistantType": "conversation",
