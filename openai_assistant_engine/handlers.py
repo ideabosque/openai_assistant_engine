@@ -564,13 +564,8 @@ def get_current_run_id_and_start_async_task(
         raise e
 
 
-@assistant_decorator()
-def resolve_ask_open_ai_handler(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> AskOpenAIType:
+def get_thread_id(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
     try:
-        assistant_type = kwargs["assistant_type"]
-        assistant_id = kwargs["assistant_id"]
         user_query = kwargs["user_query"]
         thread_id = kwargs.get("thread_id")
         message = {"role": "user", "content": user_query}
@@ -589,6 +584,22 @@ def resolve_ask_open_ai_handler(
         else:
             message["thread_id"] = thread_id
             client.beta.threads.messages.create(**message)
+
+        return thread_id
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
+@assistant_decorator()
+def resolve_ask_open_ai_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> AskOpenAIType:
+    try:
+        assistant_type = kwargs["assistant_type"]
+        assistant_id = kwargs["assistant_id"]
+        thread_id = get_thread_id(info, **kwargs)
 
         function_name, task_uuid, current_run_id = (
             get_current_run_id_and_start_async_task(
