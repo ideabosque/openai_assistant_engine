@@ -6,7 +6,6 @@ __author__ = "bibow"
 
 import asyncio
 import base64
-import concurrent.futures
 import functools
 import json
 import logging
@@ -19,14 +18,12 @@ from io import BytesIO
 from queue import Queue
 from typing import Any, Callable, Dict, List, Optional
 
+import boto3
 import pendulum
 from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -34,6 +31,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -63,13 +62,12 @@ from .types import (
 )
 
 client = None
-bucket_name = None
 fine_tuning_data_days_limit = None
-training_data_rate = None
+apigw_client = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, aws_s3, bucket_name, fine_tuning_data_days_limit, training_data_rate
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -77,10 +75,32 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
         training_data_rate = float(setting.get("training_data_rate", 0.6))
+        apigw_client = boto3.client(
+            "apigatewaymanagementapi",
+            endpoint_url=f"https://{setting['api_id']}.execute-api.{setting['region_name']}.amazonaws.com/{setting['api_stage']}",
+            region_name=setting["region_name"],
+            aws_access_key_id=setting["aws_access_key_id"],
+            aws_secret_access_key=setting["aws_secret_access_key"],
+        )
 
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
+        raise e
+
+
+def send_to_websocket(info: ResolveInfo, data: str) -> None:
+    try:
+        global apigw_client
+        # Send the message to the WebSocket client using the connection ID
+        if info.context.get("connection_id"):
+            apigw_client.post_to_connection(
+                ConnectionId=info.context["connection_id"], Data=data
+            )
+        info.context.get("logger").info(f"Message sent to WebSocket: {data}")
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
         raise e
 
 
@@ -242,6 +262,7 @@ def async_task_decorator() -> Callable:
                     **{
                         "function_name": function_name,
                         "task_uuid": task_uuid,
+                        "arguments": args[-1],
                         "status": "fail",
                         "log": log,
                     },
@@ -283,12 +304,10 @@ class EventHandler(AssistantEventHandler):
         info: ResolveInfo,
         assistant_type: str,
         queue: Optional[Queue] = None,
-        print_progress: bool = False,
     ):
         self.info = info
         self.assistant_type = assistant_type
         self.queue = queue
-        self.print_progress = print_progress
         AssistantEventHandler.__init__(self)
 
     @override
@@ -340,24 +359,23 @@ class EventHandler(AssistantEventHandler):
         self.submit_tool_outputs(tool_outputs)
 
     def submit_tool_outputs(self, tool_outputs: List[Dict[str, Any]]) -> None:
-        start_time = time.time()
         with client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
             event_handler=EventHandler(self.info, self.assistant_type),
         ) as stream:
-            if self.print_progress:
-                for _ in stream.text_deltas:
-                    elapsed_time = time.time() - start_time
-                    print(
-                        f"\rElapsed Time: {elapsed_time:.2f} seconds ({self.current_event.event}).",
-                        end="",
-                        flush=True,
+            # Print, flush, and send each `text_delta` via WebSocket
+            for text in stream.text_deltas:
+                # Print the text_delta and flush the output
+                print(text, end="", flush=True)
+                # Send the streamed data via WebSocket
+                if self.info.context.get("connection_id"):
+                    send_to_websocket(
+                        self.info,
+                        json.dumps({"text_delta": text}),
                     )
-                print()  # To move to the next line after completion
-            else:
-                stream.until_done()
+            print()  # Newline after all text deltas have been printed
 
 
 def resolve_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
@@ -530,7 +548,11 @@ def async_openai_assistant_stream(
     queue: Queue,
     arguments: Dict[str, Any],
 ) -> None:
-    event_handler = EventHandler(info, arguments["assistant_type"], queue=queue)
+    event_handler = EventHandler(
+        info,
+        arguments["assistant_type"],
+        queue=queue,
+    )
     with client.beta.threads.runs.stream(
         thread_id=arguments["thread_id"],
         assistant_id=arguments["assistant_id"],
@@ -555,6 +577,12 @@ def get_current_run_id_and_start_async_task(
         )
         thread.start()
         q = queue.get()
+
+        # Wait for the thread to complete using join or check if it is alive
+        while thread.is_alive() and info.context.get("connection_id"):
+            info.context.get("logger").info("Thread is still running...")
+            time.sleep(1)  # Interval to check the thread status
+
         if q["name"] == "current_run_id":
             return "async_openai_assistant_stream", task_uuid, q["value"]
         raise Exception("Cannot locate the value for current_run_id.")

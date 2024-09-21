@@ -28,8 +28,9 @@ setting = {
     "region_name": os.getenv("region_name"),
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
+    "api_id": os.getenv("api_id"),
+    "api_stage": os.getenv("api_stage"),
     "openai_api_key": os.getenv("openai_api_key"),
-    "bucket_name": os.getenv("bucket_name"),
     "fine_tuning_data_days_limit": os.getenv("fine_tuning_data_days_limit"),
     "training_data_rate": os.getenv("training_data_rate"),
     "whisper_model": os.getenv("whisper_model"),
@@ -154,7 +155,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": {},
             "operation_name": "ping",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     # @unittest.skip("demonstrating skipping")
@@ -188,7 +189,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "operation_name": "askOpenAi",
             }
             response = json.loads(
-                self.openai_assistant_engine.open_assistant_graphql(**payload)
+                self.openai_assistant_engine.openai_assistant_graphql(**payload)
             )
             logger.info(response)
             if response.get("errors"):
@@ -213,7 +214,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                     "operation_name": "getCurrentRun",
                 }
                 response = json.loads(
-                    self.openai_assistant_engine.open_assistant_graphql(**payload)
+                    self.openai_assistant_engine.openai_assistant_graphql(**payload)
                 )
                 logger.info(response)
                 if response.get("errors"):
@@ -230,7 +231,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "operation_name": "getLastMessage",
             }
             response = json.loads(
-                self.openai_assistant_engine.open_assistant_graphql(**payload)
+                self.openai_assistant_engine.openai_assistant_graphql(**payload)
             )
             logger.info(response)
             if response.get("errors"):
@@ -323,7 +324,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "operation_name": "askOpenAi",
             }
             response = json.loads(
-                self.openai_assistant_engine.open_assistant_graphql(**payload)
+                self.openai_assistant_engine.openai_assistant_graphql(**payload)
             )
             logger.info(response)
             if response.get("errors"):
@@ -348,7 +349,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                     "operation_name": "getCurrentRun",
                 }
                 response = json.loads(
-                    self.openai_assistant_engine.open_assistant_graphql(**payload)
+                    self.openai_assistant_engine.openai_assistant_graphql(**payload)
                 )
                 logger.info(response)
                 if response.get("errors"):
@@ -369,7 +370,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
                 "operation_name": "getLastMessage",
             }
             response = json.loads(
-                self.openai_assistant_engine.open_assistant_graphql(**payload)
+                self.openai_assistant_engine.openai_assistant_graphql(**payload)
             )
             logger.info(response)
             if response.get("errors"):
@@ -393,7 +394,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getLiveMessages",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -420,7 +421,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertFile",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -433,7 +434,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteFile",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -446,7 +447,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getFile",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -459,7 +460,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getFileContent",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
         response = json.loads(response)
 
@@ -472,7 +473,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getFiles",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -492,7 +493,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateAssistant",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -506,7 +507,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteAssistant",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -520,7 +521,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getAssistant",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -536,7 +537,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getAssistantList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -553,7 +554,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateThread",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -567,7 +568,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteThread",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -581,7 +582,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getThread",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -597,7 +598,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getThreadList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -615,7 +616,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -629,7 +630,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -643,7 +644,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -660,7 +661,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getMessageList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -679,7 +680,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateToolCall",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -693,7 +694,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteToolCall",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -707,7 +708,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getToolCall",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -723,7 +724,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getToolCallList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -743,7 +744,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateFineTuningMessages",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -771,7 +772,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateFineTuningMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -785,7 +786,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteFineTuningMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -799,7 +800,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getFineTuningMessage",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -814,7 +815,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "uploadFineTuneFile",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -832,7 +833,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getFineTuningMessageList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -848,7 +849,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "insertUpdateAsyncTask",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -862,7 +863,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "deleteAsyncTask",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -876,7 +877,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getAsyncTask",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
@@ -892,7 +893,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "variables": variables,
             "operation_name": "getAsyncTaskList",
         }
-        response = self.openai_assistant_engine.open_assistant_graphql(**payload)
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
 
