@@ -22,7 +22,7 @@ def deploy() -> List:
             "service": "OpenAI Assistant Engine",
             "class": "OpenaiAssistantEngine",
             "functions": {
-                "open_assistant_graphql": {
+                "openai_assistant_graphql": {
                     "is_static": False,
                     "label": "OpenAI Assistant GraphQL",
                     "query": [
@@ -97,7 +97,7 @@ def deploy() -> List:
                     "support_methods": ["POST"],
                     "is_auth_required": False,
                     "is_graphql": True,
-                    "settings": "open_assistant_engine",
+                    "settings": "openai_assistant_engine",
                     "disabled_in_resources": True,  # Ignore adding to resource list.
                 },
             },
@@ -114,7 +114,7 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
 
         SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
 
-    def open_assistant_graphql(self, **params: Dict[str, Any]) -> Any:
+    def openai_assistant_graphql(self, **params: Dict[str, Any]) -> Any:
         schema = Schema(
             query=Query,
             mutation=Mutations,
