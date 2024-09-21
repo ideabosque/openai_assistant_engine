@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -97,7 +98,6 @@ def send_to_websocket(info: ResolveInfo, data: str) -> None:
             apigw_client.post_to_connection(
                 ConnectionId=info.context["connection_id"], Data=data
             )
-        info.context.get("logger").info(f"Message sent to WebSocket: {data}")
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
@@ -545,6 +545,7 @@ def resolve_last_message_handler(
 def async_openai_assistant_stream(
     info: ResolveInfo,
     task_uuid: str,
+    done_event: threading.Event,
     queue: Queue,
     arguments: Dict[str, Any],
 ) -> None:
@@ -562,6 +563,7 @@ def async_openai_assistant_stream(
         ),  # Pass instructions to the stream if provided
     ) as stream:
         stream.until_done()
+    done_event.set()
 
 
 def get_current_run_id_and_start_async_task(
@@ -571,17 +573,17 @@ def get_current_run_id_and_start_async_task(
     try:
         task_uuid = str(uuid.uuid1().int >> 64)
         queue = Queue()
+        done_event = threading.Event()
         thread = threading.Thread(
             target=async_openai_assistant_stream,
-            args=(info, task_uuid, queue, arguments),
+            args=(info, task_uuid, done_event, queue, arguments),
         )
         thread.start()
         q = queue.get()
 
         # Wait for the thread to complete using join or check if it is alive
-        while thread.is_alive() and info.context.get("connection_id"):
-            info.context.get("logger").info("Thread is still running...")
-            time.sleep(1)  # Interval to check the thread status
+        if info.context.get("connection_id"):
+            done_event.wait()
 
         if q["name"] == "current_run_id":
             return "async_openai_assistant_stream", task_uuid, q["value"]
