@@ -76,13 +76,21 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
         training_data_rate = float(setting.get("training_data_rate", 0.6))
-        apigw_client = boto3.client(
-            "apigatewaymanagementapi",
-            endpoint_url=f"https://{setting['api_id']}.execute-api.{setting['region_name']}.amazonaws.com/{setting['api_stage']}",
-            region_name=setting["region_name"],
-            aws_access_key_id=setting["aws_access_key_id"],
-            aws_secret_access_key=setting["aws_secret_access_key"],
-        )
+        if (
+            setting.get("api_id")
+            and setting.get("api_stage")
+            and setting.get("region_name")
+            and setting.get("aws_access_key_id")
+            and setting.get("aws_secret_access_key")
+            and setting.get("aws_secret_access_key")
+        ):
+            apigw_client = boto3.client(
+                "apigatewaymanagementapi",
+                endpoint_url=f"https://{setting['api_id']}.execute-api.{setting['region_name']}.amazonaws.com/{setting['api_stage']}",
+                region_name=setting["region_name"],
+                aws_access_key_id=setting["aws_access_key_id"],
+                aws_secret_access_key=setting["aws_secret_access_key"],
+            )
 
     except Exception as e:
         log = traceback.format_exc()
