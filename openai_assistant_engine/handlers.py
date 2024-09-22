@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -158,11 +159,10 @@ def update_thread_and_insert_message(
         "thread_id": result.thread_id,
         "run": {
             "run_id": getattr(result, "current_run_id", None) or result.run_id,
-            "usage": getattr(result, "usage", {}) or result.usage,
+            "usage": getattr(result, "usage", kwargs.get("usage", {})),
         },
         "updated_by": kwargs["updated_by"],
     }
-
     insert_update_thread_handler(info, **update_kwargs)
 
     last_message = resolve_last_message_handler(
@@ -205,6 +205,28 @@ def assistant_decorator() -> Callable:
                     update_thread_and_insert_message(
                         args[0], kwargs, result, "assistant"
                     )
+                    args[0].context.get("logger").info(
+                        f"run_id: {result.run_id} is completed at {time.strftime('%X')}."
+                    )
+
+                # Update the status for the thread when using websocket.
+                if args[0].context.get("connectionId"):
+                    current_run = client.beta.threads.runs.retrieve(
+                        thread_id=result.thread_id, run_id=result.current_run_id
+                    )
+                    if current_run.status == "completed":
+                        kwargs["usage"] = {
+                            "prompt_tokens": current_run.usage.prompt_tokens,
+                            "completion_tokens": current_run.usage.completion_tokens,
+                            "total_tokens": current_run.usage.total_tokens,
+                        }
+                        update_thread_and_insert_message(
+                            args[0], kwargs, result, "assistant"
+                        )
+                        args[0].context.get("logger").info(
+                            f"run_id: {result.current_run_id} is completed at {time.strftime('%X')}."
+                        )
+
                 return result
             except Exception as e:
                 log = traceback.format_exc()
@@ -590,17 +612,6 @@ def get_current_run_id_and_start_async_task(
         # Wait for the thread to complete using join or check if it is alive
         if info.context.get("connectionId"):
             done_event.wait()
-            current_run = resolve_current_run_handler(
-                info,
-                **{
-                    "assistant_id": arguments["assistant_id"],
-                    "assistant_type": arguments["assistant_type"],
-                    "thread_id": arguments["thread_id"],
-                    "run_id": q["value"],
-                    "updated_by": "system",
-                },
-            )
-            info.context.get("logger").info(f"current_run: {current_run}")
 
         if q["name"] == "current_run_id":
             return "async_openai_assistant_stream", task_uuid, q["value"]
