@@ -24,9 +24,6 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -34,6 +31,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -102,9 +101,9 @@ def send_to_websocket(info: ResolveInfo, data: str) -> None:
     try:
         global apigw_client
         # Send the message to the WebSocket client using the connection ID
-        if info.context.get("connection_id"):
+        if info.context.get("connectionId"):
             apigw_client.post_to_connection(
-                ConnectionId=info.context["connection_id"], Data=data
+                ConnectionId=info.context["connectionId"], Data=data
             )
     except Exception as e:
         log = traceback.format_exc()
@@ -154,16 +153,15 @@ def update_thread_and_insert_message(
     info: ResolveInfo, kwargs: Dict[str, Any], result: Any, role: str
 ) -> None:
     update_kwargs = {
+        "assistant_type": kwargs.get("assistant_type"),
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
         "run": {
             "run_id": getattr(result, "current_run_id", None) or result.run_id,
-            "usage": getattr(result, "usage", {}),
+            "usage": getattr(result, "usage", {}) or result.usage,
         },
         "updated_by": kwargs["updated_by"],
     }
-    if kwargs.get("thread_id") is None:
-        update_kwargs["assistant_type"] = kwargs["assistant_type"]
 
     insert_update_thread_handler(info, **update_kwargs)
 
@@ -378,7 +376,7 @@ class EventHandler(AssistantEventHandler):
                 # Print the text_delta and flush the output
                 print(text, end="", flush=True)
                 # Send the streamed data via WebSocket
-                if self.info.context.get("connection_id"):
+                if self.info.context.get("connectionId"):
                     send_to_websocket(
                         self.info,
                         json.dumps({"text_delta": text}),
@@ -590,8 +588,19 @@ def get_current_run_id_and_start_async_task(
         q = queue.get()
 
         # Wait for the thread to complete using join or check if it is alive
-        if info.context.get("connection_id"):
+        if info.context.get("connectionId"):
             done_event.wait()
+            current_run = resolve_current_run_handler(
+                info,
+                **{
+                    "assistant_id": arguments["assistant_id"],
+                    "assistant_type": arguments["assistant_type"],
+                    "thread_id": arguments["thread_id"],
+                    "run_id": q["value"],
+                    "updated_by": "system",
+                },
+            )
+            info.context.get("logger").info(f"current_run: {current_run}")
 
         if q["name"] == "current_run_id":
             return "async_openai_assistant_stream", task_uuid, q["value"]
@@ -647,6 +656,7 @@ def resolve_ask_open_ai_handler(
                     "assistant_id": assistant_id,
                     "assistant_type": assistant_type,
                     "instructions": kwargs.get("instructions"),
+                    "updated_by": kwargs["updated_by"],
                 },
             )
         )
