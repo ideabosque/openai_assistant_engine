@@ -36,6 +36,20 @@ setting = {
     "whisper_model": os.getenv("whisper_model"),
     "tts_model": os.getenv("tts_model"),
     "assistant_voice": os.getenv("assistant_voice"),
+    "functs_on_local": {
+        "openai_assistant_graphql": {
+            "module_name": "openai_assistant_engine",
+            "class_name": "OpenaiAssistantEngine",
+        },
+    },
+    "funct_on_local_config": {
+        "region_name": os.getenv("region_name"),
+        "aws_access_key_id": os.getenv("aws_access_key_id"),
+        "aws_secret_access_key": os.getenv("aws_secret_access_key"),
+        "api_id": os.getenv("api_id"),
+        "api_stage": os.getenv("api_stage"),
+        "openai_api_key": os.getenv("openai_api_key"),
+    },
 }
 client = OpenAI(
     api_key=setting["openai_api_key"],

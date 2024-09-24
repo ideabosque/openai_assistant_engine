@@ -64,15 +64,47 @@ from .types import (
 client = None
 fine_tuning_data_days_limit = None
 apigw_client = None
+functs_on_local = None
+funct_on_local_config = None
+aws_lambda = None
+FUNCT = "openai_assistant_graphql"
+ASYNC_OPENAI_ASSISTANT_STREAM_QUERY = """
+    mutation asyncOpenaiAssistantStream(
+        $taskUuid: String!,
+        $arguments: JSON!,
+        $connectionId: String
+    ) {
+        asyncOpenaiAssistantStream(
+            taskUuid: $taskUuid,
+            arguments: $arguments,
+            connectionId: $connectionId
+        ) {
+            ok
+        }
+    }"""
+ASYNC_INSERT_UPDATE_FINE_TUNNING_MESSAGES_QUERY = """
+    mutation asyncInsertUpdateFineTuningMessages(
+        $taskUuid: String!,
+        $arguments: JSON!
+    ) {
+        asyncInsertUpdateFineTuningMessages(
+            taskUuid: $taskUuid,
+            arguments: $arguments
+        ) {
+            ok
+        }
+    }"""
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client
+    global client, functs_on_local, funct_on_local_config, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda
     try:
+
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
-
+        functs_on_local = setting.get("functs_on_local", {})
+        funct_on_local_config = setting.get("funct_on_local_config", {})
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
         training_data_rate = float(setting.get("training_data_rate", 0.6))
         if (
@@ -89,6 +121,22 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
                 region_name=setting["region_name"],
                 aws_access_key_id=setting["aws_access_key_id"],
                 aws_secret_access_key=setting["aws_secret_access_key"],
+            )
+        # Set up AWS credentials in Boto3
+        if (
+            setting.get("region_name")
+            and setting.get("aws_access_key_id")
+            and setting.get("aws_secret_access_key")
+        ):
+            aws_lambda = boto3.client(
+                "lambda",
+                region_name=setting.get("region_name"),
+                aws_access_key_id=setting.get("aws_access_key_id"),
+                aws_secret_access_key=setting.get("aws_secret_access_key"),
+            )
+        else:
+            aws_lambda = boto3.client(
+                "lambda",
             )
 
     except Exception as e:
@@ -109,6 +157,54 @@ def send_to_websocket(info: ResolveInfo, data: str) -> None:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
         raise e
+
+
+def invoke_funct_on_local(
+    logger: logging.Logger, funct: str, **params: Dict[str, Any]
+) -> Dict[str, Any]:
+    try:
+        funct_on_local = functs_on_local.get(funct)
+        assert funct_on_local is not None, f"Function ({funct}) not found."
+        assert funct_on_local_config is not None, "funct_on_local_config is not set."
+
+        result = Utility.json_loads(
+            Utility.invoke_funct_on_local(
+                logger, funct, funct_on_local, funct_on_local_config, **params
+            )
+        )
+        if result.get("data"):
+            return result["data"]
+        if result.get("errors"):
+            raise Exception(result["errors"])
+        if result.get("message"):
+            raise Exception(result["message"])
+        raise Exception(f"Unknown error: {result}")
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        raise e
+
+
+def execute_graphql_query(
+    logger: logging.Logger,
+    endpoint_id: str,
+    funct: str,
+    query: str,
+    variables: Dict[str, Any] = {},
+) -> Dict[str, Any]:
+    params = {
+        "query": query,
+        "variables": variables,
+    }
+    if endpoint_id is None:
+        return invoke_funct_on_local(logger, funct, **params)
+
+    result = Utility.invoke_funct_on_aws_lambda(
+        logger,
+        aws_lambda,
+        **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
+    )
+    return Utility.json_loads(Utility.json_loads(result))["data"]
 
 
 def get_assistant_function(
@@ -265,7 +361,7 @@ def async_task_decorator() -> Callable:
                     "status": "completed",
                 }
 
-                if result is not None:
+                if result is not None and not isinstance(result, bool):
                     async_task["result"] = Utility.json_dumps(result)
 
                 ## Update the status for the entry.
@@ -593,12 +689,15 @@ def async_openai_assistant_stream(
     done_event.set()
 
 
-def get_current_run_id_and_start_async_task(
-    info: ResolveInfo,
-    **arguments: Dict[str, Any],
-) -> str:
+def async_openai_assistant_stream_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> None:
     try:
-        task_uuid = str(uuid.uuid1().int >> 64)
+        task_uuid = kwargs["task_uuid"]
+        arguments = kwargs["arguments"]
+        if kwargs.get("connection_id") is not None:
+            info.context["connectionId"] = kwargs["connection_id"]
+
         queue = Queue()
         done_event = threading.Event()
         thread = threading.Thread(
@@ -607,13 +706,56 @@ def get_current_run_id_and_start_async_task(
         )
         thread.start()
         q = queue.get()
+        if q["name"] == "current_run_id":
+            current_run_id = q["value"]
+            async_task = {
+                "function_name": "async_openai_assistant_stream",
+                "task_uuid": task_uuid,
+                "result": Utility.json_dumps({"current_run_id": current_run_id}),
+            }
+
+            ## Update the status for the entry.
+            insert_update_async_task_handler(
+                info,
+                **async_task,
+            )
 
         # Wait for the thread to complete using join or check if it is alive
-        if info.context.get("connectionId"):
-            done_event.wait()
+        done_event.wait()
 
-        if q["naame"] == "current_run_id":
-            return "async_openai_assistant_stream", task_uuid, q["value"]
+        return True
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
+def get_current_run_id_and_start_async_task(
+    info: ResolveInfo,
+    **arguments: Dict[str, Any],
+) -> str:
+    try:
+        task_uuid = str(uuid.uuid1().int >> 64)
+        variables = {
+            "taskUuid": task_uuid,
+            "arguments": arguments,
+        }
+        if info.context.get("connectionId"):
+            variables["connectionId"] = info.context.get("connectionId")
+
+        result = execute_graphql_query(
+            info.context.get("logger"),
+            info.context.get("endpoint_id"),
+            FUNCT,
+            ASYNC_OPENAI_ASSISTANT_STREAM_QUERY,
+            variables=variables,
+        )
+
+        if result:
+            async_task = get_async_task("async_openai_assistant_stream", str(task_uuid))
+            current_run_id = Utility.json_loads(async_task.result)["current_run_id"]
+            return "async_openai_assistant_stream", task_uuid, current_run_id
+
         raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
@@ -1617,7 +1759,7 @@ async def process_task_with_semaphore(semaphore, *args):
         return await task_wrapper(*args)
 
 
-async def process_tasks(raw_fine_tuning_messages, kwargs):
+async def process_tasks(raw_fine_tuning_messages, arguments):
     tasks = []
     max_concurrent_tasks = 50
     semaphore = asyncio.Semaphore(max_concurrent_tasks)  # Limit concurrent tasks
@@ -1628,8 +1770,8 @@ async def process_tasks(raw_fine_tuning_messages, kwargs):
         tasks.append(
             process_task_with_semaphore(
                 semaphore,
-                kwargs["assistant_id"],
-                kwargs.get("retrain", False),
+                arguments["assistant_id"],
+                arguments.get("retrain", False),
                 raw_fine_tuning_message,
             )
         )
@@ -1642,38 +1784,38 @@ async def process_tasks(raw_fine_tuning_messages, kwargs):
 
 @async_task_decorator()
 def async_insert_update_fine_tuning_messages(
-    info: ResolveInfo, task_uuid: str, kwargs: Dict[str, Any]
+    info: ResolveInfo, task_uuid: str, arguments: Dict[str, Any]
 ) -> bool:
     try:
         if (
-            kwargs.get("trained_message_uuids")
-            or kwargs.get("weightup_message_uuids")
-            or kwargs.get("weightdown_message_uuids")
+            arguments.get("trained_message_uuids")
+            or arguments.get("weightup_message_uuids")
+            or arguments.get("weightdown_message_uuids")
         ):
             message_uuids = list(
                 set(
-                    kwargs.get("trained_message_uuids", [])
-                    + kwargs.get("weightup_message_uuids", [])
-                    + kwargs.get("weightdown_message_uuids", [])
+                    arguments.get("trained_message_uuids", [])
+                    + arguments.get("weightup_message_uuids", [])
+                    + arguments.get("weightdown_message_uuids", [])
                 )
             )
 
             with FineTuningMessageModel.batch_write() as batch:
                 for message_uuid in message_uuids:
                     count = get_fine_tuning_message_count(
-                        kwargs["assistant_id"], message_uuid
+                        arguments["assistant_id"], message_uuid
                     )
                     if count == 0:
                         continue
 
                     fine_tuning_message = get_fine_tuning_message(
-                        kwargs["assistant_id"], message_uuid
+                        arguments["assistant_id"], message_uuid
                     )
-                    if message_uuid in kwargs.get("trained_message_uuids", []):
+                    if message_uuid in arguments.get("trained_message_uuids", []):
                         fine_tuning_message.trained = True
-                    if message_uuid in kwargs.get("weightup_message_uuids", []):
+                    if message_uuid in arguments.get("weightup_message_uuids", []):
                         fine_tuning_message.weight = 1
-                    if message_uuid in kwargs.get("weightdown_message_uuids", []):
+                    if message_uuid in arguments.get("weightdown_message_uuids", []):
                         fine_tuning_message.weight = 0
                     batch.save(fine_tuning_message)
 
@@ -1681,18 +1823,20 @@ def async_insert_update_fine_tuning_messages(
 
         assistant = get_assistant_type(
             info,
-            assistant=get_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
+            assistant=get_assistant(
+                arguments["assistant_type"], arguments["assistant_id"]
+            ),
         )
 
         # Step 1: Query the oae-threads table to get thread_id and run_id values
 
-        if kwargs.get("to_date") is None:
+        if arguments.get("to_date") is None:
             to_date = pendulum.now("UTC")
         else:
-            to_date = pendulum.parse(kwargs["to_date"]).in_tz("UTC")
+            to_date = pendulum.parse(arguments["to_date"]).in_tz("UTC")
 
         # Ensure days is set and is not more than 7
-        days = kwargs.get("days")
+        days = arguments.get("days")
         if days is None or days > fine_tuning_data_days_limit:
             days = fine_tuning_data_days_limit
 
@@ -1700,7 +1844,7 @@ def async_insert_update_fine_tuning_messages(
         from_date = to_date.subtract(days=days)
 
         threads = ThreadModel.query(
-            kwargs["assistant_id"],
+            arguments["assistant_id"],
             None,
             filter_condition=(ThreadModel.updated_at.between(from_date, to_date)),
         )
@@ -1717,7 +1861,7 @@ def async_insert_update_fine_tuning_messages(
 
             _raw_fine_tuning_messages = [
                 {
-                    "assistant_id": kwargs["assistant_id"],
+                    "assistant_id": arguments["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
                     "timestamp": int(time.mktime(thread.created_at.timetuple())) - 100,
@@ -1730,7 +1874,7 @@ def async_insert_update_fine_tuning_messages(
             messages = MessageModel.query(thread.thread_id, None)
             for message in messages:
                 raw_fine_tuning_message = {
-                    "assistant_id": kwargs["assistant_id"],
+                    "assistant_id": arguments["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
                     "timestamp": int(time.mktime(message.created_at.timetuple())),
@@ -1776,7 +1920,7 @@ def async_insert_update_fine_tuning_messages(
                     tool_calls.append(tool_call_entry)
 
                     function_response = {
-                        "assistant_id": kwargs["assistant_id"],
+                        "assistant_id": arguments["assistant_id"],
                         "message_uuid": str(uuid.uuid1().int >> 64),
                         "thread_id": thread.thread_id,
                         "timestamp": int(time.mktime(tool_call.created_at.timetuple())),
@@ -1790,7 +1934,7 @@ def async_insert_update_fine_tuning_messages(
                 # Add aggregated tool calls as a single assistant entry
                 if tool_calls:
                     tool_call_message = {
-                        "assistant_id": kwargs["assistant_id"],
+                        "assistant_id": arguments["assistant_id"],
                         "message_uuid": str(uuid.uuid1().int >> 64),
                         "thread_id": thread.thread_id,
                         "timestamp": int(
@@ -1825,7 +1969,30 @@ def async_insert_update_fine_tuning_messages(
             raw_fine_tuning_messages.extend(_sorted_raw_fine_tuning_messages)
 
         # Run the tasks using asyncio and control concurrency
-        asyncio.run(process_tasks(raw_fine_tuning_messages, kwargs))
+        asyncio.run(process_tasks(raw_fine_tuning_messages, arguments))
+
+        return True
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
+def async_insert_update_fine_tuning_messages_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> bool:
+    try:
+        task_uuid = kwargs["task_uuid"]
+        arguments = kwargs["arguments"]
+        thread = threading.Thread(
+            target=async_insert_update_fine_tuning_messages,
+            args=(info, task_uuid, arguments),
+        )
+        thread.start()
+
+        ## Check if the thread is alive every 0.1 seconds
+        while thread.is_alive():
+            time.sleep(0.1)
 
         return True
     except Exception as e:
@@ -1839,13 +2006,25 @@ def insert_update_fine_tuning_messages_handler(
 ) -> bool:
     try:
         task_uuid = str(uuid.uuid1().int >> 64)
-        thread = threading.Thread(
-            target=async_insert_update_fine_tuning_messages,
-            args=(info, task_uuid, kwargs),
+        funct = "openai_assistant_graphql"
+        variables = {
+            "taskUuid": task_uuid,
+            "arguments": kwargs,
+        }
+        if info.context.get("connectionId"):
+            variables["connectionId"] = info.context.get("connectionId")
+
+        result = execute_graphql_query(
+            info.context.get("logger"),
+            info.context.get("endpoint_id"),
+            funct,
+            ASYNC_INSERT_UPDATE_FINE_TUNNING_MESSAGES_QUERY,
+            variables=variables,
         )
-        thread.start()
+
         return AsyncTaskType(
-            function_name="insert_update_fine_tuning_messages", task_uuid=task_uuid
+            function_name="async_insert_update_fine_tuning_messages",
+            task_uuid=task_uuid,
         )
     except Exception as e:
         log = traceback.format_exc()
