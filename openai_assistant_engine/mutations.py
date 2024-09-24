@@ -8,10 +8,11 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
-
 from silvaengine_utility import JSON
 
 from .handlers import (
+    async_insert_update_fine_tuning_messages_handler,
+    async_openai_assistant_stream_handler,
     delete_assistant_handler,
     delete_async_task_handler,
     delete_file_handler,
@@ -38,6 +39,49 @@ from .types import (
     ThreadType,
     ToolCallType,
 )
+
+
+class AsyncOpenaiAssistantStream(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        task_uuid = String(required=True)
+        connection_id = String(required=False)
+        arguments = JSON(required=True)
+
+    @staticmethod
+    def mutate(
+        root: Any, info: Any, **kwargs: Dict[str, Any]
+    ) -> "AsyncOpenaiAssistantStream":
+        try:
+            ok = async_openai_assistant_stream_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return AsyncOpenaiAssistantStream(ok=ok)
+
+
+class AsyncInsertUpdateFineTuningMessages(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        task_uuid = String(required=True)
+        arguments = JSON(required=True)
+
+    @staticmethod
+    def mutate(
+        root: Any, info: Any, **kwargs: Dict[str, Any]
+    ) -> "AsyncInsertUpdateFineTuningMessages":
+        try:
+            ok = async_insert_update_fine_tuning_messages_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return AsyncInsertUpdateFineTuningMessages(ok=ok)
 
 
 class InsertFile(Mutation):

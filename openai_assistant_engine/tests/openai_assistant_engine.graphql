@@ -161,6 +161,32 @@ query ping {
     ping
 }
 
+mutation asyncOpenaiAssistantStream(
+    $taskUuid: String!,
+    $arguments: JSON!,
+    $connectionId: String
+) {
+    asyncOpenaiAssistantStream(
+        taskUuid: $taskUuid,
+        arguments: $arguments,
+        connectionId: $connectionId
+    ) {
+        ok
+    }
+}
+
+mutation asyncInsertUpdateFineTuningMessages(
+    $taskUuid: String!,
+    $arguments: JSON!
+) {
+    asyncInsertUpdateFineTuningMessages(
+        taskUuid: $taskUuid,
+        arguments: $arguments
+    ) {
+        ok
+    }
+}
+
 query askOpenAi(
     $assistantType: String!,
     $assistantId: String!,
