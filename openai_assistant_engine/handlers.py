@@ -15,7 +15,7 @@ import time
 import traceback
 import uuid
 from io import BytesIO
-from queue import Queue
+from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional
 
 import boto3
@@ -64,9 +64,9 @@ from .types import (
 client = None
 fine_tuning_data_days_limit = None
 apigw_client = None
-functs_on_local = None
-funct_on_local_config = None
 aws_lambda = None
+aws_sqs = None
+task_queue = None
 FUNCT = "openai_assistant_graphql"
 ASYNC_OPENAI_ASSISTANT_STREAM_QUERY = """
     mutation asyncOpenaiAssistantStream(
@@ -94,17 +94,31 @@ ASYNC_INSERT_UPDATE_FINE_TUNNING_MESSAGES_QUERY = """
             ok
         }
     }"""
+SEND_DATA_TO_WEBSOCKET_QUERY = """
+    mutation sendDataToWebsocket(
+        $connectionId: String!,
+        $data: JSON!
+    ) {
+        sendDataToWebsocket(
+            connectionId: $connectionId,
+            data: $data
+        ) {
+            ok
+        }
+    }"""
+# Global buffer (queue)
+stream_text_deltas_queue = Queue()
+# Configurable batch size
+stream_text_deltas_batch_size = 10
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, functs_on_local, funct_on_local_config, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue
     try:
 
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
-        functs_on_local = setting.get("functs_on_local", {})
-        funct_on_local_config = setting.get("funct_on_local_config", {})
         fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
         training_data_rate = float(setting.get("training_data_rate", 0.6))
         if (
@@ -134,10 +148,20 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
                 aws_access_key_id=setting.get("aws_access_key_id"),
                 aws_secret_access_key=setting.get("aws_secret_access_key"),
             )
+            aws_sqs = boto3.resource(
+                "sqs",
+                region_name=setting.get("region_name"),
+                aws_access_key_id=setting.get("aws_access_key_id"),
+                aws_secret_access_key=setting.get("aws_secret_access_key"),
+            )
         else:
             aws_lambda = boto3.client(
                 "lambda",
             )
+            aws_sqs = boto3.resource(
+                "sqs",
+            )
+        task_queue = aws_sqs.get_queue_by_name(QueueName=setting.get("task_queue_name"))
 
     except Exception as e:
         log = traceback.format_exc()
@@ -145,14 +169,91 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
         raise e
 
 
-def send_to_websocket(info: ResolveInfo, data: str) -> None:
+def send_data_to_websocket_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
     try:
         global apigw_client
+
         # Send the message to the WebSocket client using the connection ID
-        if info.context.get("connectionId"):
-            apigw_client.post_to_connection(
-                ConnectionId=info.context["connectionId"], Data=data
+        connection_id = kwargs["connection_id"]
+        data = kwargs["data"]
+        apigw_client.post_to_connection(
+            ConnectionId=connection_id, Data=Utility.json_dumps(data)
+        )
+
+        return True
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
+def stream_text_deltas_consumer(
+    info: ResolveInfo, consumer_done_event: threading.Event
+) -> None:
+    """Consumes and processes data from the queue in batches."""
+    timeout = 60
+    connection_id = info.context.get("connectionId")
+    message_group_id = f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
+    while True:
+        stream_text_deltas_batch = []
+        # Collect items up to the batch_size
+        for _ in range(stream_text_deltas_batch_size):
+            try:
+                # Get an item from the queue
+                item = stream_text_deltas_queue.get(
+                    timeout=timeout
+                )  # Waits up to 5 seconds for an item
+                stream_text_deltas_batch.append(item)
+                stream_text_deltas_queue.task_done()
+                timeout = 1
+            except Empty:
+                # If queue is empty, break the loop and process what we have
+                break
+
+        if stream_text_deltas_batch:
+            process_stream_text_deltas_batch(
+                info, stream_text_deltas_batch, connection_id, message_group_id
             )
+        else:
+            # If no items are left in the queue, we can stop the consumer
+            info.context.get("logger").info(
+                "No more items to process. Consumer is stopping."
+            )
+            break
+
+    consumer_done_event.set()
+
+
+def process_stream_text_deltas_batch(
+    info: ResolveInfo,
+    stream_text_deltas_batch: List[str],
+    connection_id: str,
+    message_group_id: str,
+) -> None:
+    """Processes a batch of stream text deltas."""
+    try:
+        # """ Assembles the JSON 'text_delta' values of the batch and processes them. """
+        assembled_text_delta = ""
+        for item in stream_text_deltas_batch:
+            json_data = Utility.json_loads(item)
+            text_delta = json_data.get("text_delta", "")
+            assembled_text_delta += text_delta
+
+        print(assembled_text_delta.strip(), end="", flush=True)
+
+        # Send the processed batch to the WebSocket client
+        if connection_id is not None:
+            execute_graphql_query(
+                info,
+                FUNCT,
+                SEND_DATA_TO_WEBSOCKET_QUERY,
+                variables={
+                    "connectionId": connection_id,
+                    "data": {"text_delta": assembled_text_delta},
+                },
+                message_group_id=message_group_id,
+            )
+
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
@@ -160,16 +261,19 @@ def send_to_websocket(info: ResolveInfo, data: str) -> None:
 
 
 def invoke_funct_on_local(
-    logger: logging.Logger, funct: str, **params: Dict[str, Any]
+    info: ResolveInfo, funct: str, **params: Dict[str, Any]
 ) -> Dict[str, Any]:
     try:
-        funct_on_local = functs_on_local.get(funct)
+        funct_on_local = info.context["setting"]["functs_on_local"].get(funct)
         assert funct_on_local is not None, f"Function ({funct}) not found."
-        assert funct_on_local_config is not None, "funct_on_local_config is not set."
 
         result = Utility.json_loads(
             Utility.invoke_funct_on_local(
-                logger, funct, funct_on_local, funct_on_local_config, **params
+                info.context.get("logger"),
+                funct,
+                funct_on_local,
+                info.context["setting"],
+                **params,
             )
         )
         if result.get("data"):
@@ -181,30 +285,48 @@ def invoke_funct_on_local(
         raise Exception(f"Unknown error: {result}")
     except Exception as e:
         log = traceback.format_exc()
-        logger.error(log)
+        info.context.get("logger").error(log)
         raise e
 
 
 def execute_graphql_query(
-    logger: logging.Logger,
-    endpoint_id: str,
+    info: ResolveInfo,
     funct: str,
     query: str,
     variables: Dict[str, Any] = {},
+    message_group_id: str = None,
 ) -> Dict[str, Any]:
+    logger = info.context.get("logger")
+    endpoint_id = info.context.get("endpoint_id")
     params = {
         "query": query,
         "variables": variables,
     }
-    if endpoint_id is None:
-        return invoke_funct_on_local(logger, funct, **params)
+    # if endpoint_id is None:
+    #     return invoke_funct_on_local(info, funct, **params)
 
-    result = Utility.invoke_funct_on_aws_lambda(
+    if message_group_id:
+        # Utility.invoke_funct_on_aws_sqs(
+        #     logger,
+        #     task_queue,
+        #     message_group_id,
+        #     **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
+        # )
+        ##<--Testing Data-->##
+        Utility.invoke_funct_on_aws_lambda(
+            logger,
+            aws_lambda,
+            **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
+        )
+        ##<--Testing Data-->##
+        return
+
+    Utility.invoke_funct_on_aws_lambda(
         logger,
         aws_lambda,
         **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
     )
-    return Utility.json_loads(Utility.json_loads(result))["data"]
+    return
 
 
 def get_assistant_function(
@@ -490,15 +612,7 @@ class EventHandler(AssistantEventHandler):
         ) as stream:
             # Print, flush, and send each `text_delta` via WebSocket
             for text in stream.text_deltas:
-                # Print the text_delta and flush the output
-                print(text, end="", flush=True)
-                # Send the streamed data via WebSocket
-                if self.info.context.get("connectionId"):
-                    send_to_websocket(
-                        self.info,
-                        json.dumps({"text_delta": text}),
-                    )
-            print()  # Newline after all text deltas have been printed
+                stream_text_deltas_queue.put(json.dumps({"text_delta": text}))
 
 
 def resolve_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
@@ -705,6 +819,13 @@ def async_openai_assistant_stream_handler(
             args=(info, task_uuid, done_event, queue, arguments),
         )
         thread.start()
+
+        consumer_done_event = threading.Event()
+        consumer_thread = threading.Thread(
+            target=stream_text_deltas_consumer, args=(info, consumer_done_event)
+        )
+        consumer_thread.start()
+
         q = queue.get()
         if q["name"] == "current_run_id":
             current_run_id = q["value"]
@@ -721,7 +842,7 @@ def async_openai_assistant_stream_handler(
             )
 
         # Wait for the thread to complete using join or check if it is alive
-        done_event.wait()
+        done_event.wait() and consumer_done_event.wait()
 
         return True
     except Exception as e:
@@ -735,6 +856,11 @@ def get_current_run_id_and_start_async_task(
     **arguments: Dict[str, Any],
 ) -> str:
     try:
+        ##<--Testing Data-->##
+        info.context["connectionId"] = "epAe8dhCvHcCGMw="
+        info.context["endpoint_id"] = "openai"
+        ##<--Testing Data-->##
+
         task_uuid = str(uuid.uuid1().int >> 64)
         variables = {
             "taskUuid": task_uuid,
@@ -743,20 +869,18 @@ def get_current_run_id_and_start_async_task(
         if info.context.get("connectionId"):
             variables["connectionId"] = info.context.get("connectionId")
 
-        result = execute_graphql_query(
-            info.context.get("logger"),
-            info.context.get("endpoint_id"),
+        execute_graphql_query(
+            info,
             FUNCT,
             ASYNC_OPENAI_ASSISTANT_STREAM_QUERY,
             variables=variables,
         )
 
-        if result:
-            async_task = get_async_task("async_openai_assistant_stream", str(task_uuid))
-            current_run_id = Utility.json_loads(async_task.result)["current_run_id"]
-            return "async_openai_assistant_stream", task_uuid, current_run_id
+        async_task = get_async_task("async_openai_assistant_stream", str(task_uuid))
+        current_run_id = Utility.json_loads(async_task.result)["current_run_id"]
+        return "async_openai_assistant_stream", task_uuid, current_run_id
 
-        raise Exception("Cannot locate the value for current_run_id.")
+        # raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
@@ -2006,7 +2130,6 @@ def insert_update_fine_tuning_messages_handler(
 ) -> bool:
     try:
         task_uuid = str(uuid.uuid1().int >> 64)
-        funct = "openai_assistant_graphql"
         variables = {
             "taskUuid": task_uuid,
             "arguments": kwargs,
@@ -2015,9 +2138,8 @@ def insert_update_fine_tuning_messages_handler(
             variables["connectionId"] = info.context.get("connectionId")
 
         result = execute_graphql_query(
-            info.context.get("logger"),
-            info.context.get("endpoint_id"),
-            funct,
+            info,
+            FUNCT,
             ASYNC_INSERT_UPDATE_FINE_TUNNING_MESSAGES_QUERY,
             variables=variables,
         )
