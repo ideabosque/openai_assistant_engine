@@ -11,11 +11,13 @@ import os
 import sys
 import threading
 import time
+import traceback
 import unittest
 import wave
 from io import BytesIO
 from pathlib import Path
 
+import boto3
 import keyboard
 import pyaudio
 from dotenv import load_dotenv
@@ -917,6 +919,36 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         }
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_send_data_to_websockett(self):
+        sqs = boto3.resource(
+            "sqs",
+            region_name=setting.get("region_name"),
+            aws_access_key_id=setting.get("aws_access_key_id"),
+            aws_secret_access_key=setting.get("aws_secret_access_key"),
+        )
+        task_queue = sqs.get_queue_by_name(QueueName=setting.get("task_queue_name"))
+        messages = task_queue.receive_messages(
+            MaxNumberOfMessages=10,
+            VisibilityTimeout=600,
+            MessageAttributeNames=["endpoint_id", "funct"],
+        )
+        for message in messages:
+            try:
+                endpoint_id = message.message_attributes.get("endpoint_id").get(
+                    "StringValue"
+                )
+                funct = message.message_attributes.get("funct").get("StringValue")
+                params = Utility.json_loads(message.body)["params"]
+                logger.info(
+                    f"Endpoint Id: {endpoint_id}, Funct: {funct}, Params: {params}"
+                )
+                self.openai_assistant_engine.send_data_to_websocket(**params)
+            except Exception:
+                log = traceback.format_exc()
+                logger.exception(log)
+            message.delete()
 
 
 if __name__ == "__main__":

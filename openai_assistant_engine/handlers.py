@@ -124,7 +124,10 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             aws_sqs = boto3.resource(
                 "sqs",
             )
-        task_queue = aws_sqs.get_queue_by_name(QueueName=setting.get("task_queue_name"))
+        if setting.get("task_queue_name"):
+            task_queue = aws_sqs.get_queue_by_name(
+                QueueName=setting.get("task_queue_name")
+            )
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
 
@@ -156,49 +159,55 @@ def send_data_to_websocket_handler(
 
 def stream_text_deltas_consumer(
     logger: logging.Logger,
+    task_uuid: str,
     endpoint_id: str,
     setting: Dict[str, Any],
     connection_id: str,
-    consumer_done_event: threading.Event,
 ) -> None:
-    """Consumes and processes data from the queue in batches."""
-    timeout = 60
-    message_group_id = (
-        f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
-        if connection_id is not None
-        else None
-    )
-    while True:
-        stream_text_deltas_batch = []
-        # Collect items up to the batch_size
-        for _ in range(stream_text_deltas_batch_size):
-            try:
-                # Get an item from the queue
-                item = stream_text_deltas_queue.get(
-                    timeout=timeout
-                )  # Waits up to 5 seconds for an item
-                stream_text_deltas_batch.append(item)
-                stream_text_deltas_queue.task_done()
-                timeout = 1
-            except Empty:
-                # If queue is empty, break the loop and process what we have
+    try:
+        """Consumes and processes data from the queue in batches."""
+        timeout = 60
+        message_group_id = (
+            f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
+            if connection_id is not None
+            else None
+        )
+        while True:
+            stream_text_deltas_batch = []
+            # Collect items up to the batch_size
+            for _ in range(stream_text_deltas_batch_size):
+                try:
+                    # Get an item from the queue
+                    item = stream_text_deltas_queue.get(
+                        timeout=timeout
+                    )  # Waits up to 5 seconds for an item
+                    stream_text_deltas_batch.append(item)
+                    stream_text_deltas_queue.task_done()
+                    timeout = 1
+                except Empty:
+                    # If queue is empty, break the loop and process what we have
+                    break
+
+            if stream_text_deltas_batch:
+                process_stream_text_deltas_batch(
+                    logger,
+                    stream_text_deltas_batch,
+                    endpoint_id,
+                    setting,
+                    connection_id,
+                    message_group_id,
+                )
+            else:
+                # If no items are left in the queue, we can stop the consumer
+                logger.info("No more items to process. Consumer is stopping.")
                 break
-
-        if stream_text_deltas_batch:
-            process_stream_text_deltas_batch(
-                logger,
-                stream_text_deltas_batch,
-                endpoint_id,
-                setting,
-                connection_id,
-                message_group_id,
-            )
-        else:
-            # If no items are left in the queue, we can stop the consumer
-            logger.info("No more items to process. Consumer is stopping.")
-            break
-
-    consumer_done_event.set()
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        insert_update_async_task(
+            "async_openai_assistant_stream", task_uuid, status="fail", log=log
+        )
+        raise e
 
 
 def process_stream_text_deltas_batch(
@@ -272,29 +281,38 @@ def invoke_funct_on_aws_lambda(
     setting: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
 
-    if endpoint_id is None and setting is not None:
+    ## Test the waters 🧪 before diving in!
+    ##<--Testing Function-->##
+    if (not endpoint_id and setting) or (
+        endpoint_id and setting and task_queue and not message_group_id
+    ):
+        # Jump to the local function if these conditions meet.
         return invoke_funct_on_local(logger, setting, funct, **params)
+    ##<--Testing Function-->##
 
-    if message_group_id:
-        # Utility.invoke_funct_on_aws_sqs(
-        #     logger,
-        #     task_queue,
-        #     message_group_id,
-        #     **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
-        # )
-        ##<--Testing Data-->##
-        Utility.invoke_funct_on_aws_lambda(
+    # When we have both a message group and a task queue, hit the SQS 📨
+    if message_group_id and task_queue:
+        Utility.invoke_funct_on_aws_sqs(
             logger,
-            aws_lambda,
-            **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
+            task_queue,
+            message_group_id,
+            **{
+                "endpoint_id": endpoint_id,
+                "funct": funct,
+                "params": params,
+            },
         )
-        ##<--Testing Data-->##
-        return
+        return  # No need to proceed after sending the SQS message.
 
+    # If we're at the top-level, let's call the AWS Lambda directly 💻
     Utility.invoke_funct_on_aws_lambda(
         logger,
         aws_lambda,
-        **{"endpoint_id": endpoint_id, "funct": funct, "params": params},
+        **{
+            "endpoint_id": endpoint_id,
+            "funct": funct,
+            "params": params,
+        },
     )
     return
 
@@ -444,6 +462,9 @@ def insert_update_async_task(
         )
     else:
         async_task = get_async_task(function_name, task_uuid)
+        if status == "completed" and async_task.status == "fail":
+            return  # Skip the process if the task is already fail.
+
         async_task.status = status
         async_task.updated_at = pendulum.now("UTC")
 
@@ -776,25 +797,31 @@ def resolve_last_message_handler(
 def async_openai_assistant_stream(
     logger: logging.Logger,
     task_uuid: str,
-    done_event: threading.Event,
     queue: Queue,
     arguments: Dict[str, Any],
 ) -> None:
-    event_handler = EventHandler(
-        logger,
-        arguments["assistant_type"],
-        queue=queue,
-    )
-    with client.beta.threads.runs.stream(
-        thread_id=arguments["thread_id"],
-        assistant_id=arguments["assistant_id"],
-        event_handler=event_handler,
-        instructions=arguments.get(
-            "instructions"
-        ),  # Pass instructions to the stream if provided
-    ) as stream:
-        stream.until_done()
-    done_event.set()
+    try:
+        event_handler = EventHandler(
+            logger,
+            arguments["assistant_type"],
+            queue=queue,
+        )
+        with client.beta.threads.runs.stream(
+            thread_id=arguments["thread_id"],
+            assistant_id=arguments["assistant_id"],
+            event_handler=event_handler,
+            instructions=arguments.get(
+                "instructions"
+            ),  # Pass instructions to the stream if provided
+        ) as stream:
+            stream.until_done()
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        insert_update_async_task(
+            "async_openai_assistant_stream", task_uuid, status="fail", log=log
+        )
+        raise e
 
 
 def async_openai_assistant_stream_handler(
@@ -808,35 +835,34 @@ def async_openai_assistant_stream_handler(
         connection_id = kwargs.get("connection_id")
         setting = kwargs.get("setting")
 
-        queue = Queue()
-        done_event = threading.Event()
-        thread = threading.Thread(
+        stream_queue = Queue()
+        stream_thread = threading.Thread(
             target=async_openai_assistant_stream,
-            args=(logger, task_uuid, done_event, queue, arguments),
+            args=(logger, task_uuid, stream_queue, arguments),
         )
-        thread.start()
+        stream_thread.start()
 
-        consumer_done_event = threading.Event()
         consumer_thread = threading.Thread(
             target=stream_text_deltas_consumer,
-            args=(logger, endpoint_id, setting, connection_id, consumer_done_event),
+            args=(logger, task_uuid, endpoint_id, setting, connection_id),
         )
         consumer_thread.start()
 
-        q = queue.get()
-        if q["name"] == "current_run_id":
-            current_run_id = q["value"]
-            insert_update_async_task(
-                "async_openai_assistant_stream",
-                task_uuid,
-                status="in_progress",
-                result=Utility.json_dumps({"current_run_id": current_run_id}),
-            )
-        else:
-            raise Exception("Cannot locate the value for current_run_id.")
+        q = stream_queue.get()
+        assert (
+            q["name"] == "current_run_id"
+        ), "Cannot locate the value for current_run_id."
+        current_run_id = q["value"]
+        insert_update_async_task(
+            "async_openai_assistant_stream",
+            task_uuid,
+            status="in_progress",
+            result=Utility.json_dumps({"current_run_id": current_run_id}),
+        )
 
         # Wait for the thread to complete using join or check if it is alive
-        done_event.wait() and consumer_done_event.wait()
+        stream_thread.join()
+        consumer_thread.join()
 
         return True
     except Exception as e:
@@ -870,18 +896,25 @@ def get_current_run_id_and_start_async_task(
         )
 
         async_task_initiated = False
+        inspect_count = 0
         while True:
-            if not async_task_initiated:
-                count = get_async_task_count("async_openai_assistant_stream", task_uuid)
-                async_task_initiated = True if count == 1 else False
+            if inspect_count > 100:
+                raise Exception("Timeout Error")
 
-            async_task = get_async_task("async_openai_assistant_stream", task_uuid)
-            if async_task.status in ["in_progress", "completed"]:
-                break
-            elif async_task.status == "fail":
-                raise Exception(async_task.log)
-            else:
-                time.sleep(0.1)
+            if async_task_initiated:
+                async_task = get_async_task("async_openai_assistant_stream", task_uuid)
+                if async_task.status in ["in_progress", "completed"]:
+                    break
+                elif async_task.status == "fail":
+                    raise Exception(async_task.log)
+
+            count = get_async_task_count("async_openai_assistant_stream", task_uuid)
+            async_task_initiated = True if count == 1 else False
+
+            if not async_task_initiated:
+                time.sleep(0.05)
+
+            inspect_count += 1
 
         current_run_id = Utility.json_loads(async_task.result)["current_run_id"]
         return "async_openai_assistant_stream", task_uuid, current_run_id
@@ -925,6 +958,7 @@ def resolve_ask_open_ai_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> AskOpenAIType:
     try:
+        ## Test the waters 🧪 before diving in!
         ##<--Testing Data-->##
         global connection_id, endpoint_id
         if info.context.get("connectionId") is None:

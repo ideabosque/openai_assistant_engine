@@ -8,7 +8,6 @@ import logging
 from typing import Any, Dict, List
 
 from graphene import Schema
-
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 from .handlers import (
@@ -150,8 +149,13 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
         SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
 
     def async_openai_assistant_stream(self, **params: Dict[str, Any]) -> Any:
+        ## Test the waters 🧪 before diving in!
+        ##<--Testing Data-->##
         if params.get("endpoint_id") is None:
             params["setting"] = self.setting
+            params["endpoint_id"] = self.setting.get("endpoint_id")
+        ##<--Testing Data-->##
+
         async_openai_assistant_stream_handler(self.logger, **params)
         return
 
