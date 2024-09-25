@@ -8,10 +8,14 @@ import logging
 from typing import Any, Dict, List
 
 from graphene import Schema
-
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
-from .handlers import handlers_init
+from .handlers import (
+    async_insert_update_fine_tuning_messages_handler,
+    async_openai_assistant_stream_handler,
+    handlers_init,
+    send_data_to_websocket_handler,
+)
 from .schema import Mutations, Query, type_class
 
 
@@ -113,6 +117,21 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
         self.setting = setting
 
         SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
+
+    def async_openai_assistant_stream(self, **params: Dict[str, Any]) -> Any:
+        endpoint_id = params.get("endpoint_id")
+        async_openai_assistant_stream_handler(
+            self.logger, endpoint_id, self.setting, **params
+        )
+        return
+
+    def send_data_to_websocket(self, **params: Dict[str, Any]) -> Any:
+        send_data_to_websocket_handler(self.logger, **params)
+        return
+
+    def async_insert_update_fine_tuning_messages(self, **params: Dict[str, Any]) -> Any:
+        async_insert_update_fine_tuning_messages_handler(self.logger, **params)
+        return
 
     def openai_assistant_graphql(self, **params: Dict[str, Any]) -> Any:
         schema = Schema(

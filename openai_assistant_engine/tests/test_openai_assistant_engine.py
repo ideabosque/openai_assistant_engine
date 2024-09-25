@@ -42,6 +42,18 @@ setting = {
             "module_name": "openai_assistant_engine",
             "class_name": "OpenaiAssistantEngine",
         },
+        "async_openai_assistant_stream": {
+            "module_name": "openai_assistant_engine",
+            "class_name": "OpenaiAssistantEngine",
+        },
+        "send_data_to_websocket": {
+            "module_name": "openai_assistant_engine",
+            "class_name": "OpenaiAssistantEngine",
+        },
+        "async_insert_update_fine_tuning_messages": {
+            "module_name": "openai_assistant_engine",
+            "class_name": "OpenaiAssistantEngine",
+        },
     },
 }
 client = OpenAI(

@@ -21,8 +21,6 @@ from graphene import (
 from silvaengine_utility import JSON
 
 from .mutations import (
-    AsyncInsertUpdateFineTuningMessages,
-    AsyncOpenaiAssistantStream,
     DeleteAssistant,
     DeleteAsyncTask,
     DeleteFile,
@@ -38,7 +36,6 @@ from .mutations import (
     InsertUpdateMessage,
     InsertUpdateThread,
     InsertUpdateToolCall,
-    SendDataToWebsocket,
     UploadFineTuneFile,
 )
 from .queries import (
@@ -344,11 +341,6 @@ class Query(ObjectType):
 
 
 class Mutations(ObjectType):
-    async_openai_assistant_stream = AsyncOpenaiAssistantStream.Field()
-    async_insert_update_fine_tuning_messages = (
-        AsyncInsertUpdateFineTuningMessages.Field()
-    )
-    send_data_to_websocket = SendDataToWebsocket.Field()
     insert_file = InsertFile.Field()
     delete_file = DeleteFile.Field()
     insert_update_assistant = InsertUpdateAssistant.Field()
