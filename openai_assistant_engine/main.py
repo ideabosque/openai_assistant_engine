@@ -8,6 +8,7 @@ import logging
 from typing import Any, Dict, List
 
 from graphene import Schema
+
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 from .handlers import (
@@ -104,6 +105,36 @@ def deploy() -> List:
                     "settings": "openai_assistant_engine",
                     "disabled_in_resources": True,  # Ignore adding to resource list.
                 },
+                "async_openai_assistant_stream": {
+                    "is_static": False,
+                    "label": "Async OpenAI Assistant Stream",
+                    "type": "Event",
+                    "support_methods": ["POST"],
+                    "is_auth_required": False,
+                    "is_graphql": False,
+                    "settings": "openai_assistant_engine",
+                    "disabled_in_resources": True,  # Ignore adding to resource list.
+                },
+                "send_data_to_websocket": {
+                    "is_static": False,
+                    "label": "Send Data To WebSocket",
+                    "type": "Event",
+                    "support_methods": ["POST"],
+                    "is_auth_required": False,
+                    "is_graphql": False,
+                    "settings": "openai_assistant_engine",
+                    "disabled_in_resources": True,  # Ignore adding to resource list.
+                },
+                "async_insert_update_fine_tuning_messages": {
+                    "is_static": False,
+                    "label": "Async Insert Update Fine Tuning Messages",
+                    "type": "Event",
+                    "support_methods": ["POST"],
+                    "is_auth_required": False,
+                    "is_graphql": False,
+                    "settings": "openai_assistant_engine",
+                    "disabled_in_resources": True,  # Ignore adding to resource list.
+                },
             },
         }
     ]
@@ -119,10 +150,9 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
         SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
 
     def async_openai_assistant_stream(self, **params: Dict[str, Any]) -> Any:
-        endpoint_id = params.get("endpoint_id")
-        async_openai_assistant_stream_handler(
-            self.logger, endpoint_id, self.setting, **params
-        )
+        if params.get("endpoint_id") is None:
+            params["setting"] = self.setting
+        async_openai_assistant_stream_handler(self.logger, **params)
         return
 
     def send_data_to_websocket(self, **params: Dict[str, Any]) -> Any:

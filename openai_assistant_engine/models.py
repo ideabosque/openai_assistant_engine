@@ -13,7 +13,6 @@ from pynamodb.attributes import (
     UTCDateTimeAttribute,
 )
 from pynamodb.indexes import AllProjection, LocalSecondaryIndex
-
 from silvaengine_dynamodb_base import BaseModel
 
 
@@ -123,8 +122,8 @@ class AsyncTaskModel(BaseModel):
 
     function_name = UnicodeAttribute(hash_key=True)
     task_uuid = UnicodeAttribute(range_key=True)
-    arguments = MapAttribute()
-    status = UnicodeAttribute(default="in_progress")
+    arguments = MapAttribute(null=True)
+    status = UnicodeAttribute(default="initial")
     result = UnicodeAttribute(null=True)
     log = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
