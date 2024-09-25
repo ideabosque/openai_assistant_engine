@@ -55,6 +55,8 @@ setting = {
             "class_name": "OpenaiAssistantEngine",
         },
     },
+    "connection_id": os.getenv("connection_id"),
+    "endpoint_id": os.getenv("endpoint_id"),
 }
 client = OpenAI(
     api_key=setting["openai_api_key"],

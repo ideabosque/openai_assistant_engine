@@ -71,10 +71,12 @@ task_queue = None
 stream_text_deltas_queue = Queue()
 # Configurable batch size
 stream_text_deltas_batch_size = 10
+endpoint_id = None
+connection_id = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, endpoint_id, connection_id
     try:
 
         client = OpenAI(
@@ -123,6 +125,8 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
                 "sqs",
             )
         task_queue = aws_sqs.get_queue_by_name(QueueName=setting.get("task_queue_name"))
+        endpoint_id = setting.get("endpoint_id")
+        connection_id = setting.get("connection_id")
 
     except Exception as e:
         log = traceback.format_exc()
@@ -159,7 +163,11 @@ def stream_text_deltas_consumer(
 ) -> None:
     """Consumes and processes data from the queue in batches."""
     timeout = 60
-    message_group_id = f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
+    message_group_id = (
+        f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
+        if connection_id is not None
+        else None
+    )
     while True:
         stream_text_deltas_batch = []
         # Collect items up to the batch_size
@@ -213,17 +221,17 @@ def process_stream_text_deltas_batch(
         print(assembled_text_delta.strip(), end="", flush=True)
 
         # Send the processed batch to the WebSocket client
-        if connection_id is not None:
+        if connection_id is not None and message_group_id is not None:
             invoke_funct_on_aws_lambda(
                 logger,
                 endpoint_id,
-                setting,
                 "send_data_to_websocket",
                 params={
                     "connection_id": connection_id,
                     "data": {"text_delta": assembled_text_delta},
                 },
                 message_group_id=message_group_id,
+                setting=setting,
             )
 
     except Exception as e:
@@ -258,13 +266,13 @@ def invoke_funct_on_local(
 def invoke_funct_on_aws_lambda(
     logger: logging.Logger,
     endpoint_id: str,
-    setting: Dict[str, Any],
     funct: str,
     params: Dict[str, Any] = {},
     message_group_id: str = None,
+    setting: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
 
-    if endpoint_id is None:
+    if endpoint_id is None and setting is not None:
         return invoke_funct_on_local(logger, setting, funct, **params)
 
     if message_group_id:
@@ -417,6 +425,40 @@ def assistant_decorator() -> Callable:
     return actual_decorator
 
 
+def insert_update_async_task(
+    function_name: str,
+    task_uuid: str,
+    status: str = None,
+    arguments: dict[str, any] = None,
+    result: str = None,
+    log: str = None,
+) -> None:
+    if status is None:
+        async_task = AsyncTaskModel(
+            function_name,
+            task_uuid,
+            **{
+                "created_at": pendulum.now("UTC"),
+                "updated_at": pendulum.now("UTC"),
+            },
+        )
+    else:
+        async_task = get_async_task(function_name, task_uuid)
+        async_task.status = status
+        async_task.updated_at = pendulum.now("UTC")
+
+    if arguments is not None:
+        async_task.arguments = arguments
+
+    if result is not None:
+        async_task.result = result
+
+    if log is not None:
+        async_task.log = log
+
+    async_task.save()
+
+
 def async_task_decorator() -> Callable:
     def actual_decorator(original_function: Callable) -> Callable:
         @functools.wraps(original_function)
@@ -429,25 +471,23 @@ def async_task_decorator() -> Callable:
                 )
 
                 ## insert an entry into sync_tasks table.
-                async_task = AsyncTaskModel(
-                    function_name,
-                    task_uuid,
-                    **{
-                        "arguments": args[-1],
-                        "created_at": pendulum.now("UTC"),
-                        "updated_at": pendulum.now("UTC"),
-                    },
-                )
-                async_task.save()
+                insert_update_async_task(function_name, task_uuid, arguments=args[-1])
 
                 result = original_function(*args, **kwargs)
 
-                async_task = AsyncTaskModel.get(function_name, task_uuid)
-                async_task.status = "completed"
-                async_task.updated_at = pendulum.now("UTC")
-                if result is not None and not isinstance(result, bool):
-                    async_task.result = Utility.json_dumps(result)
-                async_task.save()
+                insert_update_async_task(function_name, task_uuid, status="completed")
+
+                ## Update the status with result for the entry.
+                insert_update_async_task(
+                    function_name,
+                    task_uuid,
+                    status="completed",
+                    result=(
+                        Utility.json_dumps(result)
+                        if result is not None and not isinstance(result, bool)
+                        else None
+                    ),
+                )
 
                 args[0].info(
                     f"task_uuid: {task_uuid} is completed at {time.strftime('%X')}."
@@ -459,12 +499,9 @@ def async_task_decorator() -> Callable:
                 args[0].error(log)
 
                 ## Update the status with log for the entry.
-                async_task = AsyncTaskModel.get(function_name, task_uuid)
-                async_task.arguments = args[-1]
-                async_task.status = "fail"
-                async_task.log = log
-                async_task.updated_at = pendulum.now("UTC")
-                async_task.save()
+                insert_update_async_task(
+                    function_name, task_uuid, status="fail", log=log
+                )
 
         return wrapper_function
 
@@ -762,14 +799,14 @@ def async_openai_assistant_stream(
 
 def async_openai_assistant_stream_handler(
     logger: logging.Logger,
-    endpoint_id: str,
-    setting: Dict[str, Any],
     **kwargs: Dict[str, Any],
 ) -> None:
     try:
+        endpoint_id = kwargs.get("endpoint_id")
         task_uuid = kwargs["task_uuid"]
         arguments = kwargs["arguments"]
         connection_id = kwargs.get("connection_id")
+        setting = kwargs.get("setting")
 
         queue = Queue()
         done_event = threading.Event()
@@ -789,9 +826,14 @@ def async_openai_assistant_stream_handler(
         q = queue.get()
         if q["name"] == "current_run_id":
             current_run_id = q["value"]
-            async_task = AsyncTaskModel.get("async_openai_assistant_stream", task_uuid)
-            async_task.result = Utility.json_dumps({"current_run_id": current_run_id})
-            async_task.save()
+            insert_update_async_task(
+                "async_openai_assistant_stream",
+                task_uuid,
+                status="in_progress",
+                result=Utility.json_dumps({"current_run_id": current_run_id}),
+            )
+        else:
+            raise Exception("Cannot locate the value for current_run_id.")
 
         # Wait for the thread to complete using join or check if it is alive
         done_event.wait() and consumer_done_event.wait()
@@ -800,6 +842,9 @@ def async_openai_assistant_stream_handler(
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
+        insert_update_async_task(
+            "async_openai_assistant_stream", task_uuid, status="fail", log=log
+        )
         raise e
 
 
@@ -808,11 +853,6 @@ def get_current_run_id_and_start_async_task(
     **arguments: Dict[str, Any],
 ) -> str:
     try:
-        ##<--Testing Data-->##
-        info.context["connectionId"] = "epZIzfccPHcCH3g="
-        # info.context["endpoint_id"] = "openai"
-        ##<--Testing Data-->##
-
         task_uuid = str(uuid.uuid1().int >> 64)
         params = {
             "task_uuid": task_uuid,
@@ -824,16 +864,28 @@ def get_current_run_id_and_start_async_task(
         invoke_funct_on_aws_lambda(
             info.context["logger"],
             info.context["endpoint_id"],
-            info.context["setting"],
             "async_openai_assistant_stream",
             params=params,
+            setting=info.context["setting"],
         )
 
-        async_task = get_async_task("async_openai_assistant_stream", str(task_uuid))
+        async_task_initiated = False
+        while True:
+            if not async_task_initiated:
+                count = get_async_task_count("async_openai_assistant_stream", task_uuid)
+                async_task_initiated = True if count == 1 else False
+
+            async_task = get_async_task("async_openai_assistant_stream", task_uuid)
+            if async_task.status in ["in_progress", "completed"]:
+                break
+            elif async_task.status == "fail":
+                raise Exception(async_task.log)
+            else:
+                time.sleep(0.1)
+
         current_run_id = Utility.json_loads(async_task.result)["current_run_id"]
         return "async_openai_assistant_stream", task_uuid, current_run_id
 
-        # raise Exception("Cannot locate the value for current_run_id.")
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
@@ -873,6 +925,14 @@ def resolve_ask_open_ai_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> AskOpenAIType:
     try:
+        ##<--Testing Data-->##
+        global connection_id, endpoint_id
+        if info.context.get("connectionId") is None:
+            info.context["connectionId"] = connection_id
+        if info.context.get("endpoint_id") is None:
+            info.context["endpoint_id"] = endpoint_id
+        ##<--Testing Data-->##
+
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
         thread_id = get_thread_id(info, **kwargs)
@@ -1864,6 +1924,10 @@ def async_insert_update_fine_tuning_messages(
     logger: logging.Logger, task_uuid: str, arguments: Dict[str, Any]
 ) -> bool:
     try:
+        insert_update_async_task(
+            "async_insert_update_fine_tuning_messages", task_uuid, status="in_progress"
+        )
+
         if (
             arguments.get("trained_message_uuids")
             or arguments.get("weightup_message_uuids")
@@ -2088,9 +2152,9 @@ def insert_update_fine_tuning_messages_handler(
         invoke_funct_on_aws_lambda(
             info.context["logger"],
             info.context["endpoint_id"],
-            info.context["setting"],
             "async_insert_update_fine_tuning_messages",
             params=params,
+            setting=info.context["setting"],
         )
 
         return AsyncTaskType(
