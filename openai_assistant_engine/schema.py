@@ -38,6 +38,7 @@ from .mutations import (
     InsertUpdateMessage,
     InsertUpdateThread,
     InsertUpdateToolCall,
+    SendDataToWebsocket,
     UploadFineTuneFile,
 )
 from .queries import (
@@ -347,6 +348,7 @@ class Mutations(ObjectType):
     async_insert_update_fine_tuning_messages = (
         AsyncInsertUpdateFineTuningMessages.Field()
     )
+    send_data_to_websocket = SendDataToWebsocket.Field()
     insert_file = InsertFile.Field()
     delete_file = DeleteFile.Field()
     insert_update_assistant = InsertUpdateAssistant.Field()

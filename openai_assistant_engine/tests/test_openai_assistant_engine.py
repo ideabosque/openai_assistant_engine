@@ -31,6 +31,7 @@ setting = {
     "api_id": os.getenv("api_id"),
     "api_stage": os.getenv("api_stage"),
     "openai_api_key": os.getenv("openai_api_key"),
+    "task_queue_name": os.getenv("task_queue_name"),
     "fine_tuning_data_days_limit": os.getenv("fine_tuning_data_days_limit"),
     "training_data_rate": os.getenv("training_data_rate"),
     "whisper_model": os.getenv("whisper_model"),
@@ -41,14 +42,6 @@ setting = {
             "module_name": "openai_assistant_engine",
             "class_name": "OpenaiAssistantEngine",
         },
-    },
-    "funct_on_local_config": {
-        "region_name": os.getenv("region_name"),
-        "aws_access_key_id": os.getenv("aws_access_key_id"),
-        "aws_secret_access_key": os.getenv("aws_secret_access_key"),
-        "api_id": os.getenv("api_id"),
-        "api_stage": os.getenv("api_stage"),
-        "openai_api_key": os.getenv("openai_api_key"),
     },
 }
 client = OpenAI(
@@ -63,6 +56,7 @@ sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base
 sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
 sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
 sys.path.insert(5, "C:/Users/bibo7/gitrepo/silvaengine/price_inquiry_funct")
+sys.path.insert(6, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
@@ -745,7 +739,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+            "assistantId": "asst_jUzZKojROaz6HACC1uzaqR5x",
             "retrain": True,
             # "trainedMessageUuids": [
             #     "6666396519121752559",
