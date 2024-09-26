@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -73,10 +74,11 @@ stream_text_deltas_queue = Queue()
 stream_text_deltas_batch_size = 10
 endpoint_id = None
 connection_id = None
+test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, endpoint_id, connection_id
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, endpoint_id, connection_id, test_mode
     try:
 
         client = OpenAI(
@@ -130,6 +132,7 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             )
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
+        test_mode = setting.get("test_mode")
 
     except Exception as e:
         log = traceback.format_exc()
@@ -283,11 +286,19 @@ def invoke_funct_on_aws_lambda(
 
     ## Test the waters 🧪 before diving in!
     ##<--Testing Function-->##
-    if (not endpoint_id and setting) or (
-        endpoint_id and setting and task_queue and not message_group_id
-    ):
-        # Jump to the local function if these conditions meet.
-        return invoke_funct_on_local(logger, setting, funct, **params)
+    if test_mode:
+        if test_mode == "local_for_all":
+            # Jump to the local function if these conditions meet.
+            return invoke_funct_on_local(logger, setting, funct, **params)
+        elif (
+            test_mode == "local_for_sqs" and not message_group_id
+        ):  # Test websocket callback with SQS from local.
+            # Jump to the local function if these conditions meet.
+            return invoke_funct_on_local(logger, setting, funct, **params)
+        elif (
+            test_mode == "local_for_aws_lambda" and task_queue is None
+        ):  # Test AWS Lambda calls from local.
+            pass
     ##<--Testing Function-->##
 
     # When we have both a message group and a task queue, hit the SQS 📨
