@@ -73,11 +73,12 @@ stream_text_deltas_queue = Queue()
 stream_text_deltas_batch_size = None
 endpoint_id = None
 connection_id = None
+data_format = None
 test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, data_format, test_mode
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -133,6 +134,7 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
         )
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
+        data_format = setting.get("data_format", "batch")
         test_mode = setting.get("test_mode")
 
     except Exception as e:
@@ -161,6 +163,208 @@ def send_data_to_websocket_handler(
         raise e
 
 
+# Utility Function: Validate and Complete JSON
+def try_complete_json(accumulated: str) -> str:
+    """
+    Try to validate and complete the JSON by adding various combinations of closing brackets.
+
+    Args:
+        accumulated (str): The accumulated JSON string that may be incomplete.
+
+    Returns:
+        str: The ending string that successfully completes the JSON, or an empty string if no valid completion is found.
+    """
+    possible_endings = ["}", "]", "}", "}]", "}]}", "}}"]
+    for ending in possible_endings:
+        try:
+            completed_json = accumulated + ending
+            json.loads(completed_json)  # Attempt to parse with the potential ending
+            return ending  # If parsing succeeds, return the successful ending
+        except json.JSONDecodeError:
+            continue
+    return ""  # If no ending works, return empty string
+
+
+# Helper Function: Process and Send JSON
+def process_and_send_json(
+    logger: logging.Logger,
+    partial_json_accumulator: str,
+    complete_json_accumulator: str,
+    connection_id: str,
+    endpoint_id: str,
+    message_group_id: str,
+    setting: Dict[str, Any],
+) -> str:
+    """
+    Process and send JSON if it forms a valid structure.
+
+    Args:
+        logger: Logger instance for logging.
+        partial_json_accumulator: The accumulated partial JSON string.
+        complete_json_accumulator: The complete JSON string for validation.
+        connection_id: WebSocket connection ID.
+        endpoint_id: AWS Lambda endpoint identifier.
+        message_group_id: Unique identifier for message grouping.
+        setting: Configuration settings.
+
+    Returns:
+        str: The updated complete JSON string after sending the partial JSON.
+    """
+    combined_json = complete_json_accumulator + partial_json_accumulator
+    ending = try_complete_json(combined_json)
+
+    if ending:
+        print(partial_json_accumulator, flush=True)  # Print the JSON to console
+        if connection_id and message_group_id:
+            invoke_funct_on_aws_lambda(
+                logger,
+                endpoint_id,
+                "send_data_to_websocket",
+                params={
+                    "connection_id": connection_id,
+                    "data": {"text_delta": partial_json_accumulator},
+                },
+                message_group_id=message_group_id,
+                setting=setting,
+            )
+        complete_json_accumulator += partial_json_accumulator  # Update complete JSON
+        partial_json_accumulator = ""  # Reset the partial JSON accumulator
+
+    return complete_json_accumulator, partial_json_accumulator
+
+
+# JSON Processing Loop
+def json_processing_loop(
+    logger: logging.Logger,
+    endpoint_id: str,
+    setting: Dict[str, Any],
+    connection_id: str,
+    message_group_id: str,
+) -> None:
+    """
+    JSON processing loop to handle JSON-formatted text deltas.
+
+    Args:
+        logger: Logger instance to log messages.
+        endpoint_id: AWS Lambda endpoint identifier.
+        setting: Configuration settings for processing.
+        connection_id: WebSocket connection ID.
+        stream_text_deltas_queue: Queue from which to consume the text deltas.
+        message_group_id: Message group ID for the WebSocket connection.
+    """
+    complete_json_accumulator, partial_json_accumulator = "", ""
+    timeout = 60
+
+    while True:
+        try:
+            item = stream_text_deltas_queue.get(timeout=timeout)
+            stream_text_deltas_queue.task_done()
+            timeout = 1
+
+            # Parse and accumulate
+            json_data = Utility.json_loads(item)
+            text_delta = json_data.get("text_delta", "")
+            partial_json_accumulator += text_delta
+
+            # Process and send if it forms a complete JSON structure
+            complete_json_accumulator, partial_json_accumulator = process_and_send_json(
+                logger,
+                partial_json_accumulator,
+                complete_json_accumulator,
+                connection_id,
+                endpoint_id,
+                message_group_id,
+                setting,
+            )
+
+        except Empty:
+            # Send the last fragment without examination
+            if partial_json_accumulator:
+                print(partial_json_accumulator, flush=True)
+                if connection_id and message_group_id:
+                    invoke_funct_on_aws_lambda(
+                        logger,
+                        endpoint_id,
+                        "send_data_to_websocket",
+                        params={
+                            "connection_id": connection_id,
+                            "data": {"text_delta": partial_json_accumulator},
+                        },
+                        message_group_id=message_group_id,
+                        setting=setting,
+                    )
+                complete_json_accumulator += partial_json_accumulator
+                partial_json_accumulator = ""
+
+            logger.info(
+                "No more items to process in JSON format. Consumer is stopping."
+            )
+            break
+
+
+# Batch Processing Loop
+def batch_processing_loop(
+    logger: logging.Logger,
+    endpoint_id: str,
+    setting: Dict[str, Any],
+    connection_id: str,
+    message_group_id: str,
+) -> None:
+    """
+    Batch processing loop to handle batched text deltas.
+
+    Args:
+        logger: Logger instance to log messages.
+        endpoint_id: AWS Lambda endpoint identifier.
+        setting: Configuration settings for processing.
+        connection_id: WebSocket connection ID.
+        stream_text_deltas_queue: Queue from which to consume the text deltas.
+        message_group_id: Message group ID for the WebSocket connection.
+        stream_text_deltas_batch_size: Size of each batch to process.
+    """
+    timeout = 60
+
+    while True:
+        stream_text_deltas_batch = []
+
+        # Collect items up to the specified batch size
+        while len(stream_text_deltas_batch) < stream_text_deltas_batch_size:
+            try:
+                item = stream_text_deltas_queue.get(timeout=timeout)
+                stream_text_deltas_batch.append(item)
+                stream_text_deltas_queue.task_done()
+                timeout = 1
+            except Empty:
+                break
+
+        # Process the batch if we have collected any items
+        if stream_text_deltas_batch:
+            assembled_text_delta = "".join(
+                Utility.json_loads(item).get("text_delta", "")
+                for item in stream_text_deltas_batch
+            )
+            print(assembled_text_delta.strip(), end="", flush=True)
+
+            if connection_id and message_group_id:
+                invoke_funct_on_aws_lambda(
+                    logger,
+                    endpoint_id,
+                    "send_data_to_websocket",
+                    params={
+                        "connection_id": connection_id,
+                        "data": {"text_delta": assembled_text_delta},
+                    },
+                    message_group_id=message_group_id,
+                    setting=setting,
+                )
+        else:
+            logger.info(
+                "No more items to process in batch format. Consumer is stopping."
+            )
+            break
+
+
+# Main Function: Stream Text Deltas Consumer
 def stream_text_deltas_consumer(
     logger: logging.Logger,
     task_uuid: str,
@@ -168,88 +372,48 @@ def stream_text_deltas_consumer(
     setting: Dict[str, Any],
     connection_id: str,
 ) -> None:
-    try:
-        """Consumes and processes data from the queue in batches."""
-        timeout = 60
-        message_group_id = (
-            f"{connection_id}-{str(uuid.uuid1().int >> 64)}"
-            if connection_id is not None
-            else None
-        )
-        while True:
-            stream_text_deltas_batch = []
-            # Collect items up to the batch_size
-            for _ in range(stream_text_deltas_batch_size):
-                try:
-                    # Get an item from the queue
-                    item = stream_text_deltas_queue.get(
-                        timeout=timeout
-                    )  # Waits up to 5 seconds for an item
-                    stream_text_deltas_batch.append(item)
-                    stream_text_deltas_queue.task_done()
-                    timeout = 1
-                except Empty:
-                    # If queue is empty, break the loop and process what we have
-                    break
+    """
+    Consumes and processes data from the queue in batches or JSON format based on the configuration.
 
-            if stream_text_deltas_batch:
-                process_stream_text_deltas_batch(
-                    logger,
-                    stream_text_deltas_batch,
-                    endpoint_id,
-                    setting,
-                    connection_id,
-                    message_group_id,
-                )
-            else:
-                # If no items are left in the queue, we can stop the consumer
-                logger.info("No more items to process. Consumer is stopping.")
-                break
+    Args:
+        logger: Logger instance to log messages.
+        task_uuid: Task identifier.
+        endpoint_id: Endpoint identifier for invoking AWS Lambda.
+        setting: Configuration settings for processing.
+        connection_id: WebSocket connection ID.
+        stream_text_deltas_queue: Queue from which to consume the text deltas.
+        stream_text_deltas_batch_size: Size of each batch to process. Ignored if data_format is 'json'.
+        data_format: Format to process data ('batch' or 'json'). Default is 'batch'.
+    """
+    try:
+        message_group_id = (
+            f"{connection_id}-{str(uuid.uuid1().int >> 64)}" if connection_id else None
+        )
+
+        # Decide which processing loop to use based on the data format
+        if data_format.lower() == "json":
+            json_processing_loop(
+                logger,
+                endpoint_id,
+                setting,
+                connection_id,
+                message_group_id,
+            )
+        else:
+            batch_processing_loop(
+                logger,
+                endpoint_id,
+                setting,
+                connection_id,
+                message_group_id,
+            )
+
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
         insert_update_async_task(
             "async_openai_assistant_stream", task_uuid, status="fail", log=log
         )
-        raise e
-
-
-def process_stream_text_deltas_batch(
-    logger: logging.Logger,
-    stream_text_deltas_batch: List[str],
-    endpoint_id: str,
-    setting: Dict[str, Any],
-    connection_id: str,
-    message_group_id: str,
-) -> None:
-    """Processes a batch of stream text deltas."""
-    try:
-        # """ Assembles the JSON 'text_delta' values of the batch and processes them. """
-        assembled_text_delta = ""
-        for item in stream_text_deltas_batch:
-            json_data = Utility.json_loads(item)
-            text_delta = json_data.get("text_delta", "")
-            assembled_text_delta += text_delta
-
-        print(assembled_text_delta.strip(), end="", flush=True)
-
-        # Send the processed batch to the WebSocket client
-        if connection_id is not None and message_group_id is not None:
-            invoke_funct_on_aws_lambda(
-                logger,
-                endpoint_id,
-                "send_data_to_websocket",
-                params={
-                    "connection_id": connection_id,
-                    "data": {"text_delta": assembled_text_delta},
-                },
-                message_group_id=message_group_id,
-                setting=setting,
-            )
-
-    except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
         raise e
 
 
