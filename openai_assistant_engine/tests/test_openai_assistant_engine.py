@@ -23,7 +23,6 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
-
 from silvaengine_utility import Utility
 
 load_dotenv()
@@ -60,6 +59,7 @@ setting = {
     },
     "connection_id": os.getenv("connection_id"),
     "endpoint_id": os.getenv("endpoint_id"),
+    "data_format": os.getenv("data_format"),
     "test_mode": os.getenv("test_mode"),
 }
 client = OpenAI(
