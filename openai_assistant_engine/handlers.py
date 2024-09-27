@@ -578,17 +578,18 @@ def assistant_decorator() -> Callable:
                 result = original_function(*args, **kwargs)
                 if function_name == "resolve_ask_open_ai_handler":
                     update_thread_and_insert_message(args[0], kwargs, result, "user")
-                elif (
-                    function_name == "resolve_current_run_handler"
-                    and result.status == "completed"
-                ):
-                    update_thread_and_insert_message(
-                        args[0], kwargs, result, "assistant"
-                    )
-                    args[0].context.get("logger").info(
-                        f"run_id: {result.run_id} is completed at {time.strftime('%X')}."
-                    )
-
+                elif function_name == "resolve_current_run_handler":
+                    if result.status == "completed":
+                        update_thread_and_insert_message(
+                            args[0], kwargs, result, "assistant"
+                        )
+                        args[0].context.get("logger").info(
+                            f"run_id: {result.run_id} is completed at {time.strftime('%X')}."
+                        )
+                    elif result.status == "fail":
+                        raise Exception(
+                            f"run_id: {result.run_id} is fail at {time.strftime('%X')}."
+                        )
                 # Update the status for the thread when using websocket.
                 if args[0].context.get("connectionId"):
                     current_run = client.beta.threads.runs.retrieve(
@@ -605,6 +606,10 @@ def assistant_decorator() -> Callable:
                         )
                         args[0].context.get("logger").info(
                             f"run_id: {result.current_run_id} is completed at {time.strftime('%X')}."
+                        )
+                    elif result.status == "fail":
+                        raise Exception(
+                            f"run_id: {result.run_id} is fail at {time.strftime('%X')}."
                         )
 
                 return result
