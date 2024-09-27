@@ -73,12 +73,12 @@ stream_text_deltas_queue = Queue()
 stream_text_deltas_batch_size = None
 endpoint_id = None
 connection_id = None
-data_format = None
+data_format = "batch"
 test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, data_format, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -134,7 +134,6 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
         )
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
-        data_format = setting.get("data_format", "batch")
         test_mode = setting.get("test_mode")
 
     except Exception as e:
@@ -391,7 +390,7 @@ def stream_text_deltas_consumer(
         )
 
         # Decide which processing loop to use based on the data format
-        if data_format.lower() == "json":
+        if data_format == "json":
             json_processing_loop(
                 logger,
                 endpoint_id,
@@ -1005,11 +1004,17 @@ def async_openai_assistant_stream_handler(
     **kwargs: Dict[str, Any],
 ) -> None:
     try:
+        global data_format
         endpoint_id = kwargs.get("endpoint_id")
         task_uuid = kwargs["task_uuid"]
         arguments = kwargs["arguments"]
         connection_id = kwargs.get("connection_id")
         setting = kwargs.get("setting")
+
+        _assistant = client.beta.assistants.retrieve(arguments["assistant_id"])
+        response_format = _get_assistant_response_format(_assistant)
+        if response_format in ["json_object", "json_schema"]:
+            data_format = "json"
 
         stream_queue = Queue()
         stream_thread = threading.Thread(
@@ -1245,6 +1250,18 @@ def get_assistant_count(assistant_type: str, assistant_id: str) -> int:
     )
 
 
+def _get_assistant_response_format(assistant: object) -> str:
+    return (
+        assistant.response_format
+        if isinstance(assistant.response_format, str)
+        else (
+            assistant.response_format["type"]
+            if isinstance(assistant.response_format, dict)
+            else assistant.response_format.type
+        )
+    )
+
+
 def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> AssistantType:
     _assistant = client.beta.assistants.retrieve(assistant.assistant_id)
     assistant = assistant.__dict__["attribute_values"]
@@ -1256,11 +1273,7 @@ def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> Assistan
     assistant["metadata"] = _assistant.metadata
     assistant["temperature"] = _assistant.temperature
     assistant["top_p"] = _assistant.top_p
-    assistant["response_format"] = (
-        _assistant.response_format
-        if isinstance(_assistant.response_format, str)
-        else _assistant.response_format.type
-    )
+    assistant["response_format"] = _get_assistant_response_format(_assistant)
 
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
 
