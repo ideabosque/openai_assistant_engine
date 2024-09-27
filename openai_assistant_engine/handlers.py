@@ -70,16 +70,15 @@ task_queue = None
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
 # Configurable batch size
-stream_text_deltas_batch_size = 10
+stream_text_deltas_batch_size = None
 endpoint_id = None
 connection_id = None
 test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, endpoint_id, connection_id, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
     try:
-
         client = OpenAI(
             api_key=setting["openai_api_key"],
         )
@@ -129,6 +128,9 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             task_queue = aws_sqs.get_queue_by_name(
                 QueueName=setting.get("task_queue_name")
             )
+        stream_text_deltas_batch_size = int(
+            setting.get("stream_text_deltas_batch_size", 10)
+        )
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
         test_mode = setting.get("test_mode")
