@@ -24,9 +24,6 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -34,6 +31,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -68,18 +67,23 @@ apigw_client = None
 aws_lambda = None
 aws_sqs = None
 task_queue = None
+
+data_format = "auto"
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
 # Configurable batch size
 stream_text_deltas_batch_size = None
+
+## Test the waters 🧪 before diving in!
+##<--Testing Data-->##
 endpoint_id = None
 connection_id = None
-data_format = "batch"
 test_mode = None
+##<--Testing Data-->##
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, data_format, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -126,16 +130,23 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             aws_sqs = boto3.resource(
                 "sqs",
             )
+
         if setting.get("task_queue_name"):
             task_queue = aws_sqs.get_queue_by_name(
                 QueueName=setting.get("task_queue_name")
             )
+        if setting.get("data_format"):
+            data_format = setting.get("data_format")
         stream_text_deltas_batch_size = int(
             setting.get("stream_text_deltas_batch_size", 10)
         )
+
+        ## Test the waters 🧪 before diving in!
+        ##<--Testing Data-->##
         endpoint_id = setting.get("endpoint_id")
         connection_id = setting.get("connection_id")
         test_mode = setting.get("test_mode")
+        ##<--Testing Data-->##
 
     except Exception as e:
         log = traceback.format_exc()
@@ -368,6 +379,7 @@ def batch_processing_loop(
 def stream_text_deltas_consumer(
     logger: logging.Logger,
     task_uuid: str,
+    consumer_event: threading.Event,
     endpoint_id: str,
     setting: Dict[str, Any],
     connection_id: str,
@@ -407,6 +419,7 @@ def stream_text_deltas_consumer(
                 connection_id,
                 message_group_id,
             )
+        consumer_event.set()
 
     except Exception as e:
         log = traceback.format_exc()
@@ -414,6 +427,7 @@ def stream_text_deltas_consumer(
         insert_update_async_task(
             "async_openai_assistant_stream", task_uuid, status="fail", log=log
         )
+        consumer_event.set()
         raise e
 
 
@@ -978,6 +992,7 @@ def resolve_last_message_handler(
 def async_openai_assistant_stream(
     logger: logging.Logger,
     task_uuid: str,
+    stream_event: threading.Event,
     queue: Queue,
     arguments: Dict[str, Any],
 ) -> None:
@@ -996,12 +1011,14 @@ def async_openai_assistant_stream(
             ),  # Pass instructions to the stream if provided
         ) as stream:
             stream.until_done()
+        stream_event.set()
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
         insert_update_async_task(
             "async_openai_assistant_stream", task_uuid, status="fail", log=log
         )
+        stream_event.set()
         raise e
 
 
@@ -1017,21 +1034,32 @@ def async_openai_assistant_stream_handler(
         connection_id = kwargs.get("connection_id")
         setting = kwargs.get("setting")
 
-        _assistant = client.beta.assistants.retrieve(arguments["assistant_id"])
-        response_format = _get_assistant_response_format(_assistant)
-        if response_format in ["json_object", "json_schema"]:
-            data_format = "json"
+        if data_format == "auto":
+            data_format = "batch"
+            _assistant = client.beta.assistants.retrieve(arguments["assistant_id"])
+            response_format = _get_assistant_response_format(_assistant)
+            if response_format in ["json_object", "json_schema"]:
+                data_format = "json"
 
         stream_queue = Queue()
+        stream_event = threading.Event()
         stream_thread = threading.Thread(
             target=async_openai_assistant_stream,
-            args=(logger, task_uuid, stream_queue, arguments),
+            args=(logger, task_uuid, stream_event, stream_queue, arguments),
         )
         stream_thread.start()
 
+        consumer_event = threading.Event()
         consumer_thread = threading.Thread(
             target=stream_text_deltas_consumer,
-            args=(logger, task_uuid, endpoint_id, setting, connection_id),
+            args=(
+                logger,
+                task_uuid,
+                consumer_event,
+                endpoint_id,
+                setting,
+                connection_id,
+            ),
         )
         consumer_thread.start()
 
@@ -1048,8 +1076,11 @@ def async_openai_assistant_stream_handler(
         )
 
         # Wait for the thread to complete using join or check if it is alive
-        stream_thread.join()
-        consumer_thread.join()
+        stream_event.wait()
+        logger.info(f"async_openai_assistant_stream is done!!")
+
+        consumer_event.wait()
+        logger.info(f"stream_text_deltas_consumer is done!!")
 
         return True
     except Exception as e:
