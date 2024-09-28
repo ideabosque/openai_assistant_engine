@@ -270,7 +270,7 @@ def json_processing_loop(
         try:
             item = stream_text_deltas_queue.get(timeout=timeout)
             stream_text_deltas_queue.task_done()
-            timeout = 1
+            timeout = 15
 
             # Parse and accumulate
             json_data = Utility.json_loads(item)
