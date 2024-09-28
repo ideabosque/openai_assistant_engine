@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -607,9 +608,9 @@ def assistant_decorator() -> Callable:
                         args[0].context.get("logger").info(
                             f"run_id: {result.current_run_id} is completed at {time.strftime('%X')}."
                         )
-                    elif result.status == "fail":
+                    elif current_run.status == "fail":
                         raise Exception(
-                            f"run_id: {result.run_id} is fail at {time.strftime('%X')}."
+                            f"run_id: {result.current_run_id} is fail at {time.strftime('%X')}."
                         )
 
                 return result
