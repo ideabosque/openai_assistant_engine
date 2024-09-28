@@ -185,14 +185,18 @@ def try_complete_json(accumulated: str) -> str:
     Returns:
         str: The ending string that successfully completes the JSON, or an empty string if no valid completion is found.
     """
-    possible_endings = ["}", "]", "}", "}]", "}]}", "}}"]
-    for ending in possible_endings:
-        try:
-            completed_json = accumulated + ending
-            json.loads(completed_json)  # Attempt to parse with the potential ending
-            return ending  # If parsing succeeds, return the successful ending
-        except json.JSONDecodeError:
-            continue
+    try:
+        json.loads(accumulated)  # Attempt to parse with the accumulated
+        return accumulated
+    except json.JSONDecodeError:
+        possible_endings = ["}", "]", "}", "}]", "}]}", "}}"]
+        for ending in possible_endings:
+            try:
+                completed_json = accumulated + ending
+                json.loads(completed_json)  # Attempt to parse with the potential ending
+                return ending  # If parsing succeeds, return the successful ending
+            except json.JSONDecodeError:
+                continue
     return ""  # If no ending works, return empty string
 
 
@@ -270,7 +274,7 @@ def json_processing_loop(
         try:
             item = stream_text_deltas_queue.get(timeout=timeout)
             stream_text_deltas_queue.task_done()
-            timeout = 15
+            timeout = 5
 
             # Parse and accumulate
             json_data = Utility.json_loads(item)
@@ -289,24 +293,6 @@ def json_processing_loop(
             )
 
         except Empty:
-            # Send the last fragment without examination
-            if partial_json_accumulator:
-                print(partial_json_accumulator, flush=True)
-                if connection_id and message_group_id:
-                    invoke_funct_on_aws_lambda(
-                        logger,
-                        endpoint_id,
-                        "send_data_to_websocket",
-                        params={
-                            "connection_id": connection_id,
-                            "data": {"text_delta": partial_json_accumulator},
-                        },
-                        message_group_id=message_group_id,
-                        setting=setting,
-                    )
-                complete_json_accumulator += partial_json_accumulator
-                partial_json_accumulator = ""
-
             logger.info(
                 "No more items to process in JSON format. Consumer is stopping."
             )
