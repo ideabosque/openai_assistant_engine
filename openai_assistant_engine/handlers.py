@@ -201,6 +201,39 @@ def try_complete_json(accumulated: str) -> str:
     return ""  # If no ending works, return empty string
 
 
+def _send_data_to_websocket(
+    logger: logging.Logger,
+    endpoint_id: str,
+    connection_id: str,
+    data: Dict[str, Any],
+    message_group_id: str,
+    setting: Dict[str, Any],
+) -> None:
+    """
+    Send data to WebSocket connection.
+
+    Args:
+        logger: Logger instance for logging.
+        endpoint_id: AWS Lambda endpoint identifier.
+        connection_id: WebSocket connection ID.
+        data: Data to be sent.
+        message_group_id: Unique identifier for message grouping.
+        setting: Configuration settings.
+    """
+    if connection_id and message_group_id:
+        invoke_funct_on_aws_lambda(
+            logger,
+            endpoint_id,
+            "send_data_to_websocket",
+            params={
+                "connection_id": connection_id,
+                "data": data,
+            },
+            message_group_id=message_group_id,
+            setting=setting,
+        )
+
+
 # Helper Function: Process and Send JSON
 def process_and_send_json(
     logger: logging.Logger,
@@ -231,18 +264,14 @@ def process_and_send_json(
 
     if ending:
         print(partial_json_accumulator, flush=True)  # Print the JSON to console
-        if connection_id and message_group_id:
-            invoke_funct_on_aws_lambda(
-                logger,
-                endpoint_id,
-                "send_data_to_websocket",
-                params={
-                    "connection_id": connection_id,
-                    "data": {"text_delta": partial_json_accumulator},
-                },
-                message_group_id=message_group_id,
-                setting=setting,
-            )
+        _send_data_to_websocket(
+            logger,
+            endpoint_id,
+            connection_id,
+            {"text_delta": partial_json_accumulator},
+            message_group_id,
+            setting,
+        )
         complete_json_accumulator += partial_json_accumulator  # Update complete JSON
         partial_json_accumulator = ""  # Reset the partial JSON accumulator
 
@@ -297,18 +326,14 @@ def json_processing_loop(
             logger.info(
                 "No more items to process in JSON format. Consumer is stopping."
             )
-            if connection_id and message_group_id:
-                invoke_funct_on_aws_lambda(
-                    logger,
-                    endpoint_id,
-                    "send_data_to_websocket",
-                    params={
-                        "connection_id": connection_id,
-                        "data": {"task_done": True},
-                    },
-                    message_group_id=message_group_id,
-                    setting=setting,
-                )
+            _send_data_to_websocket(
+                logger,
+                endpoint_id,
+                connection_id,
+                {"task_done": True},
+                message_group_id,
+                setting,
+            )
             break
 
 
@@ -353,36 +378,28 @@ def batch_processing_loop(
                 Utility.json_loads(item).get("text_delta", "")
                 for item in stream_text_deltas_batch
             )
-            print(assembled_text_delta.strip(), end="", flush=True)
 
-            if connection_id and message_group_id:
-                invoke_funct_on_aws_lambda(
-                    logger,
-                    endpoint_id,
-                    "send_data_to_websocket",
-                    params={
-                        "connection_id": connection_id,
-                        "data": {"text_delta": assembled_text_delta},
-                    },
-                    message_group_id=message_group_id,
-                    setting=setting,
-                )
+            print(assembled_text_delta.strip(), end="", flush=True)
+            _send_data_to_websocket(
+                logger,
+                endpoint_id,
+                connection_id,
+                {"text_delta": assembled_text_delta},
+                message_group_id,
+                setting,
+            )
         else:
             logger.info(
                 "No more items to process in batch format. Consumer is stopping."
             )
-            if connection_id and message_group_id:
-                invoke_funct_on_aws_lambda(
-                    logger,
-                    endpoint_id,
-                    "send_data_to_websocket",
-                    params={
-                        "connection_id": connection_id,
-                        "data": {"task_done": True},
-                    },
-                    message_group_id=message_group_id,
-                    setting=setting,
-                )
+            _send_data_to_websocket(
+                logger,
+                endpoint_id,
+                connection_id,
+                {"task_done": True},
+                message_group_id,
+                setting,
+            )
             break
 
 
