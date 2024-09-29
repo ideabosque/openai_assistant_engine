@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -296,6 +297,18 @@ def json_processing_loop(
             logger.info(
                 "No more items to process in JSON format. Consumer is stopping."
             )
+            if connection_id and message_group_id:
+                invoke_funct_on_aws_lambda(
+                    logger,
+                    endpoint_id,
+                    "send_data_to_websocket",
+                    params={
+                        "connection_id": connection_id,
+                        "data": {"task_done": True},
+                    },
+                    message_group_id=message_group_id,
+                    setting=setting,
+                )
             break
 
 
@@ -358,6 +371,18 @@ def batch_processing_loop(
             logger.info(
                 "No more items to process in batch format. Consumer is stopping."
             )
+            if connection_id and message_group_id:
+                invoke_funct_on_aws_lambda(
+                    logger,
+                    endpoint_id,
+                    "send_data_to_websocket",
+                    params={
+                        "connection_id": connection_id,
+                        "data": {"task_done": True},
+                    },
+                    message_group_id=message_group_id,
+                    setting=setting,
+                )
             break
 
 
