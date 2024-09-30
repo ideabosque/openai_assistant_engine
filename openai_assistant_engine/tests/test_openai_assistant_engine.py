@@ -23,7 +23,6 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
-
 from silvaengine_utility import Utility
 
 load_dotenv()
