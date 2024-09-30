@@ -2289,7 +2289,7 @@ def async_insert_update_fine_tuning_messages(
                     "assistant_id": arguments["assistant_id"],
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
-                    "timestamp": int(time.mktime(thread.created_at.timetuple())) - 100,
+                    "timestamp": int(time.mktime(thread.created_at.timetuple())) - 1000,
                     "role": "system",
                     "content": assistant.instructions,
                 }
