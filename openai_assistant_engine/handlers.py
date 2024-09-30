@@ -368,7 +368,7 @@ def batch_processing_loop(
                 item = stream_text_deltas_queue.get(timeout=timeout)
                 stream_text_deltas_batch.append(item)
                 stream_text_deltas_queue.task_done()
-                timeout = 1
+                timeout = 5
             except Empty:
                 break
 
