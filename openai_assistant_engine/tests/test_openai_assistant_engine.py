@@ -23,6 +23,7 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
+
 from silvaengine_utility import Utility
 
 load_dotenv()
@@ -58,6 +59,7 @@ setting = {
         },
     },
     "data_format": os.getenv("data_format"),
+    "stream_text_deltas_batch_size": os.getenv("stream_text_deltas_batch_size"),
     "connection_id": os.getenv("connection_id"),
     "endpoint_id": os.getenv("endpoint_id"),
     "test_mode": os.getenv("test_mode"),
@@ -184,15 +186,15 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # print("Hello! I am an AI assistant. Please provide your detail location?")
-        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
         # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
-        # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
+        assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
         # assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
         thread_id = None
         while True:
@@ -753,7 +755,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
             "assistantType": "conversation",
