@@ -24,6 +24,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +34,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -378,7 +379,7 @@ def batch_processing_loop(
                 for item in stream_text_deltas_batch
             )
 
-            print(assembled_text_delta.strip(), end="", flush=True)
+            print(assembled_text_delta, end="", flush=True)
             _send_data_to_websocket(
                 logger,
                 endpoint_id,
@@ -798,6 +799,10 @@ class EventHandler(AssistantEventHandler):
         if event.event == "thread.run.requires_action":
             self.handle_requires_action(event.data)
 
+    @override
+    def on_text_delta(self, delta: Any, snapshot: Any) -> None:
+        stream_text_deltas_queue.put(json.dumps({"text_delta": delta.value}))
+
     def handle_requires_action(self, data: Any) -> None:
         tool_outputs = []
         for tool in data.required_action.submit_tool_outputs.tool_calls:
@@ -847,9 +852,7 @@ class EventHandler(AssistantEventHandler):
             tool_outputs=tool_outputs,
             event_handler=EventHandler(self.logger, self.assistant_type),
         ) as stream:
-            # Print, flush, and send each `text_delta` via WebSocket
-            for text in stream.text_deltas:
-                stream_text_deltas_queue.put(json.dumps({"text_delta": text}))
+            stream.until_done()
 
 
 def resolve_file_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> OpenAIFileType:
