@@ -8,11 +8,10 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
+
 from silvaengine_utility import JSON
 
 from .handlers import (
-    async_insert_update_fine_tuning_messages_handler,
-    async_openai_assistant_stream_handler,
     delete_assistant_handler,
     delete_async_task_handler,
     delete_file_handler,
@@ -28,7 +27,6 @@ from .handlers import (
     insert_update_message_handler,
     insert_update_thread_handler,
     insert_update_tool_call_handler,
-    send_data_to_websocket_handler,
     upload_fine_tune_file_handler,
 )
 from .types import (
