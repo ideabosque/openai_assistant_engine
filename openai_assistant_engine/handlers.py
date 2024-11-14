@@ -375,7 +375,7 @@ def batch_processing_loop(
         # Process the batch if we have collected any items
         if stream_text_deltas_batch:
             assembled_text_delta = "".join(
-                Utility.json_loads(item).get("text_delta", "")
+                Utility.json_loads(item).get("text_delta") or ""
                 for item in stream_text_deltas_batch
             )
 
