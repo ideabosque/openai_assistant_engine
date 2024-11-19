@@ -76,7 +76,8 @@ sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base
 sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
 sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
 sys.path.insert(5, "C:/Users/bibo7/gitrepo/silvaengine/price_inquiry_funct")
-sys.path.insert(6, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
+sys.path.insert(6, "C:/Users/bibo7/gitrepo/silvaengine/rfq_request_intake_funct")
+sys.path.insert(7, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
 # sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
@@ -194,9 +195,9 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
         # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
         # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
-        # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
+        assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
         # assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
-        assistant_id = "asst_CRw6YN4ZAZ2w7fz7LqYetrbm"
+        # assistant_id = "asst_CRw6YN4ZAZ2w7fz7LqYetrbm"
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()

@@ -670,7 +670,7 @@ def insert_update_async_task(
     function_name: str,
     task_uuid: str,
     status: str = None,
-    arguments: dict[str, any] = None,
+    arguments: Dict[str, any] = None,
     result: str = None,
     log: str = None,
 ) -> None:
