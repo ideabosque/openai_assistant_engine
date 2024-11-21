@@ -1039,6 +1039,9 @@ def async_openai_assistant_stream(
             instructions=arguments.get(
                 "instructions"
             ),  # Pass instructions to the stream if provided
+            additional_instructions=arguments.get(
+                "additional_instructions"
+            ),  # Pass additional instructions to the stream if provided
         ) as stream:
             stream.until_done()
         stream_event.set()
@@ -1227,6 +1230,7 @@ def resolve_ask_open_ai_handler(
                     "assistant_id": assistant_id,
                     "assistant_type": assistant_type,
                     "instructions": kwargs.get("instructions"),
+                    "additional_instructions": kwargs.get("additional_instructions"),
                     "updated_by": kwargs["updated_by"],
                 },
             )
