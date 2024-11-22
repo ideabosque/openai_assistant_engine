@@ -107,6 +107,8 @@ class Query(ObjectType):
         assistant_id=String(required=True),
         instructions=String(required=False),
         additional_instructions=String(required=False),
+        response_format=JSON(required=False),
+        tools=List(JSON, required=False),
         attachments=List(JSON, required=False),
         tool_resources=JSON(required=False),
         thread_metadata=JSON(required=False),

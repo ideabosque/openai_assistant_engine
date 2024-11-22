@@ -1042,6 +1042,10 @@ def async_openai_assistant_stream(
             additional_instructions=arguments.get(
                 "additional_instructions"
             ),  # Pass additional instructions to the stream if provided
+            response_format=arguments.get(
+                "response_format"
+            ),  # Pass response format to the stream if provided
+            tools=arguments.get("tools"),  # Pass tools to the stream if provided
         ) as stream:
             stream.until_done()
         stream_event.set()
@@ -1222,6 +1226,13 @@ def resolve_ask_open_ai_handler(
         assistant_id = kwargs["assistant_id"]
         thread_id = get_thread_id(info, **kwargs)
 
+        response_format = None
+        if kwargs.get("response_format") is not None:
+            if kwargs["response_format"]["type"] == "auto":
+                response_format = "auto"
+            else:
+                response_format = kwargs["response_format"]
+
         function_name, task_uuid, current_run_id = (
             get_current_run_id_and_start_async_task(
                 info,
@@ -1231,6 +1242,8 @@ def resolve_ask_open_ai_handler(
                     "assistant_type": assistant_type,
                     "instructions": kwargs.get("instructions"),
                     "additional_instructions": kwargs.get("additional_instructions"),
+                    "response_format": response_format,
+                    "tools": kwargs.get("tools"),
                     "updated_by": kwargs["updated_by"],
                 },
             )
