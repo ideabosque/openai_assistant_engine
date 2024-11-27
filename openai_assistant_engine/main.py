@@ -8,6 +8,7 @@ import logging
 from typing import Any, Dict, List
 
 from graphene import Schema
+
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 from .handlers import (
@@ -111,7 +112,7 @@ def deploy() -> List:
                     "support_methods": ["POST"],
                     "is_auth_required": False,
                     "is_graphql": False,
-                    "settings": "openai_assistant_engine",
+                    "settings": "beta_core_openai",
                     "disabled_in_resources": True,  # Ignore adding to resource list.
                 },
                 "send_data_to_websocket": {
@@ -121,7 +122,7 @@ def deploy() -> List:
                     "support_methods": ["POST"],
                     "is_auth_required": False,
                     "is_graphql": False,
-                    "settings": "openai_assistant_engine",
+                    "settings": "beta_core_openai",
                     "disabled_in_resources": True,  # Ignore adding to resource list.
                 },
                 "async_insert_update_fine_tuning_messages": {
@@ -131,7 +132,7 @@ def deploy() -> List:
                     "support_methods": ["POST"],
                     "is_auth_required": False,
                     "is_graphql": False,
-                    "settings": "openai_assistant_engine",
+                    "settings": "beta_core_openai",
                     "disabled_in_resources": True,  # Ignore adding to resource list.
                 },
             },
