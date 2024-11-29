@@ -1222,9 +1222,11 @@ def resolve_ask_open_ai_handler(
             info.context["endpoint_id"] = endpoint_id
         ##<--Testing Data-->##
 
-        info.context.get("logger").info(f"endpoint_id: {info.context['endpoint_id']}")
         info.context.get("logger").info(
-            f"connection_id: {info.context['connectionId']}"
+            f"endpoint_id: {info.context.get('endpoint_id')}"
+        )
+        info.context.get("logger").info(
+            f"connection_id: {info.context.get('connectionId')}"
         )
 
         assistant_type = kwargs["assistant_type"]
