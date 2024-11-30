@@ -69,7 +69,7 @@ aws_lambda = None
 aws_sqs = None
 task_queue = None
 
-data_format = "auto"
+data_format = "batch"
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
 # Configurable batch size
@@ -1064,19 +1064,11 @@ def async_openai_assistant_stream_handler(
     **kwargs: Dict[str, Any],
 ) -> None:
     try:
-        global data_format
         endpoint_id = kwargs.get("endpoint_id")
         task_uuid = kwargs["task_uuid"]
         arguments = kwargs["arguments"]
         connection_id = kwargs.get("connection_id")
         setting = kwargs.get("setting")
-
-        if data_format == "auto":
-            data_format = "batch"
-            _assistant = client.beta.assistants.retrieve(arguments["assistant_id"])
-            response_format = _get_assistant_response_format(_assistant)
-            if response_format in ["json_object", "json_schema"]:
-                data_format = "json"
 
         stream_queue = Queue()
         stream_event = threading.Event()
@@ -1215,7 +1207,7 @@ def resolve_ask_open_ai_handler(
     try:
         ## Test the waters 🧪 before diving in!
         ##<--Testing Data-->##
-        global connection_id, endpoint_id
+        global connection_id, endpoint_id, data_format
         if info.context.get("connectionId") is None:
             info.context["connectionId"] = connection_id
         if info.context.get("endpoint_id") is None:
@@ -1233,26 +1225,43 @@ def resolve_ask_open_ai_handler(
         assistant_id = kwargs["assistant_id"]
         thread_id = get_thread_id(info, **kwargs)
 
-        response_format = None
-        if kwargs.get("response_format") is not None:
-            if kwargs["response_format"]["type"] == "auto":
-                response_format = "auto"
+        arguments = {
+            "thread_id": thread_id,
+            "assistant_id": assistant_id,
+            "assistant_type": assistant_type,
+            "updated_by": kwargs["updated_by"],
+        }
+
+        if "instructions" in kwargs:
+            arguments["instructions"] = kwargs["instructions"]
+
+        if "additional_instructions" in kwargs:
+            arguments["additional_instructions"] = kwargs["additional_instructions"]
+
+        if "response_format" in kwargs:
+            format_type = kwargs["response_format"]["type"]
+
+            if format_type in ["json_object", "json_schema"]:
+                data_format = "json"
+
+            if format_type == "auto":
+                arguments["response_format"] = "auto"
             else:
-                response_format = kwargs["response_format"]
+                arguments["response_format"] = kwargs["response_format"]
+        else:
+            _assistant = client.beta.assistants.retrieve(kwargs["assistant_id"])
+            format_type = _get_assistant_response_format(_assistant)
+
+            if format_type in ["json_object", "json_schema"]:
+                data_format = "json"
+
+        if "tools" in kwargs:
+            arguments["tools"] = kwargs["tools"]
 
         function_name, task_uuid, current_run_id = (
             get_current_run_id_and_start_async_task(
                 info,
-                **{
-                    "thread_id": thread_id,
-                    "assistant_id": assistant_id,
-                    "assistant_type": assistant_type,
-                    "instructions": kwargs.get("instructions"),
-                    "additional_instructions": kwargs.get("additional_instructions"),
-                    "response_format": response_format,
-                    "tools": kwargs.get("tools"),
-                    "updated_by": kwargs["updated_by"],
-                },
+                **arguments,
             )
         )
 
