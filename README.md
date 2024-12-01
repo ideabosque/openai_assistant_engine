@@ -875,13 +875,3 @@ ASSISTANT_VOICE=your_assistant_voice_id_here
    ```
 
 This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries. The voice version will use voice recognition for input and text-to-speech for output.
-
-#### Example Video Demonstration
-
-In this video demonstration, you will see both chatbot scripts in action:
-
-This demonstration will help you visualize the interaction process and understand how the chatbots handle user queries in real-time.
-
-![Chatbot demo in English](media/2024-08-08_16-31-43.mp4)
-
-![Chatbot demo in Chinese](media/2024-08-09_11-18-04.mp4)
