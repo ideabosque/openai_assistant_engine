@@ -69,7 +69,7 @@ aws_lambda = None
 aws_sqs = None
 task_queue = None
 
-data_format = "batch"
+data_format = None
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
 # Configurable batch size
@@ -1238,6 +1238,7 @@ def resolve_ask_open_ai_handler(
         if "additional_instructions" in kwargs:
             arguments["additional_instructions"] = kwargs["additional_instructions"]
 
+        data_format = "batch"
         if "response_format" in kwargs:
             format_type = kwargs["response_format"]["type"]
 
