@@ -58,7 +58,6 @@ setting = {
             "class_name": "OpenaiAssistantEngine",
         },
     },
-    "data_format": os.getenv("data_format"),
     "stream_text_deltas_batch_size": os.getenv("stream_text_deltas_batch_size"),
     "connection_id": os.getenv("connection_id"),
     "endpoint_id": os.getenv("endpoint_id"),

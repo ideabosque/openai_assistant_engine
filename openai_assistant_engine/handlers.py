@@ -411,6 +411,7 @@ def stream_text_deltas_consumer(
     endpoint_id: str,
     setting: Dict[str, Any],
     connection_id: str,
+    data_format: str,
 ) -> None:
     """
     Consumes and processes data from the queue in batches or JSON format based on the configuration.
@@ -1070,6 +1071,22 @@ def async_openai_assistant_stream_handler(
         connection_id = kwargs.get("connection_id")
         setting = kwargs.get("setting")
 
+        data_format = "batch"
+        if "response_format" in arguments:
+            format_type = arguments["response_format"]["type"]
+
+            if format_type in ["json_object", "json_schema"]:
+                data_format = "json"
+
+            if format_type == "auto":
+                arguments["response_format"] = "auto"
+        else:
+            _assistant = client.beta.assistants.retrieve(arguments["assistant_id"])
+            format_type = _get_assistant_response_format(_assistant)
+
+            if format_type in ["json_object", "json_schema"]:
+                data_format = "json"
+
         stream_queue = Queue()
         stream_event = threading.Event()
         stream_thread = threading.Thread(
@@ -1088,6 +1105,7 @@ def async_openai_assistant_stream_handler(
                 endpoint_id,
                 setting,
                 connection_id,
+                data_format,
             ),
         )
         consumer_thread.start()
@@ -1207,7 +1225,7 @@ def resolve_ask_open_ai_handler(
     try:
         ## Test the waters 🧪 before diving in!
         ##<--Testing Data-->##
-        global connection_id, endpoint_id, data_format
+        global connection_id, endpoint_id
         if info.context.get("connectionId") is None:
             info.context["connectionId"] = connection_id
         if info.context.get("endpoint_id") is None:
@@ -1238,23 +1256,8 @@ def resolve_ask_open_ai_handler(
         if "additional_instructions" in kwargs:
             arguments["additional_instructions"] = kwargs["additional_instructions"]
 
-        data_format = "batch"
         if "response_format" in kwargs:
-            format_type = kwargs["response_format"]["type"]
-
-            if format_type in ["json_object", "json_schema"]:
-                data_format = "json"
-
-            if format_type == "auto":
-                arguments["response_format"] = "auto"
-            else:
-                arguments["response_format"] = kwargs["response_format"]
-        else:
-            _assistant = client.beta.assistants.retrieve(kwargs["assistant_id"])
-            format_type = _get_assistant_response_format(_assistant)
-
-            if format_type in ["json_object", "json_schema"]:
-                data_format = "json"
+            arguments["response_format"] = kwargs["response_format"]
 
         if "tools" in kwargs:
             arguments["tools"] = kwargs["tools"]
