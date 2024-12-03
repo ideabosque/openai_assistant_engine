@@ -24,9 +24,6 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -34,6 +31,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -69,7 +68,6 @@ aws_lambda = None
 aws_sqs = None
 task_queue = None
 
-data_format = None
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
 # Configurable batch size
@@ -84,7 +82,7 @@ test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, data_format, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -136,8 +134,6 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             task_queue = aws_sqs.get_queue_by_name(
                 QueueName=setting.get("task_queue_name")
             )
-        if setting.get("data_format"):
-            data_format = setting.get("data_format")
         stream_text_deltas_batch_size = int(
             setting.get("stream_text_deltas_batch_size", 10)
         )
@@ -1909,6 +1905,7 @@ def upload_fine_tune_file_handler(
     try:
         assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
+        training_percentage = kwargs["training_percentage"]
         from_date = kwargs["from_date"]
         to_date = kwargs.get("to_date")
 
@@ -2052,7 +2049,7 @@ def upload_fine_tune_file_handler(
         training_data = []
         validation_data = []
         for thread_fine_tuning_message in thread_fine_tuning_messages:
-            if random.random() < 0.8:
+            if random.random() < training_percentage / 100:
                 training_data.append(thread_fine_tuning_message)
             else:
                 validation_data.append(thread_fine_tuning_message)

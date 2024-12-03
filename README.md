@@ -29,28 +29,66 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
     - Ensures a robust system capable of meeting diverse operational requirements.
     - Enhances system performance over time through detailed record-keeping and analysis.
 
-## Installation
+## Installation and Deployment
 
-To easily install the OpenAI Assistant Engine using pip and Git, execute the following command in your terminal:
-
-```bash
-$ python -m pip install git+ssh://git@github.com/ideabosque/silvaengine_utility.git@main#egg=silvaengine_utility
-$ python -m pip install git+ssh://git@github.com/ideabosque/silvaengine_dynamodb_base.git@main#egg=silvaengine_dynamodb_base
-$ python -m pip install git+ssh://git@github.com/ideabosque/openai_assistant_engine.git@main#egg=openai_assistant_engine
-```
 
 ## Configuration
 Configuring the OpenAI Assistant Engine requires setting up specific files and environment variables. Follow these steps to ensure proper configuration:
 
 ### AWS DynamoDB Tables
 
-To enable efficient caching and data management, create the following AWS DynamoDB tables:
+To facilitate efficient caching and streamlined data management, the following AWS DynamoDB tables are utilized:
 
-1. **`oae-assistants`**: This table uses a partition key (`assistant_type`) and a sort key (`assistant_id`).
+1. **`oae-assistants`**: Stores configuration data for assistant functionality, enabling dynamic module loading for function calling.
 
-2. **`oae-threads`**: Configure this table with a partition key (`assistant_id`) and a sort key (`thread_id`).
+2. **`oae-threads`**: Maintains records of thread usage, supporting structured conversation management.
 
-3. **`oae-messages`**: Configure this table with a partition key (`thread_id`) and a sort key (`message_id`).
+3. **`oae-messages`**: Captures the interactions between users and the assistant, ensuring a comprehensive message history.
+
+4. **`oae-tool_calls`**: Logs activities related to function calls, providing detailed insights into tool utilization.
+
+5. **`oae-async_tasks`**: Tracks the status of asynchronous operations initiated via the OpenAI Assistant API, enabling robust task monitoring.
+
+6. **`oae-fine_tuning_messages`**: Generates fine-tuning datasets by leveraging historical data, facilitating the continual improvement of AI model performance.
+
+### Assistant Configuration Setup
+
+The following JSON structure is utilized to define and configure an assistant within the **`oae-assistants`** table. This structure specifies the assistant's type, unique identifier, name, and the various functions it can perform.
+
+```json
+{
+    "assistant_type": <ASSISTANT_TYPE>,
+    "assistant_id": <ASSISTANT_ID>,
+    "assistant_name": <ASSISTANT_NAME>,
+    "configuration": {
+        ...<CONFIGURATION>
+    },
+    "functions": [
+        {
+            "module_name": <MODULE_NAME>,
+            "class_name": <CLASS_NAME>,
+            "function_name": <FUNCTION_NAME>,
+            "configuration": {
+                ...<CONFIGURATION>
+            }
+        }
+    ]
+}
+```
+
+- `assistant_type`: Specifies the category of the assistant, such as a conversational agent or a task-specific agent, defining its primary purpose and capabilities.  
+- `assistant_id`: A unique identifier assigned to the assistant by OpenAI, ensuring distinct and unambiguous recognition within the system.  
+- `assistant_name`: The designated name of the assistant, primarily used for display and reference to provide user-friendly identification.  
+- `configuration`: A set of configurations at the assistant level, governing the behavior and functionality of all related operations and functions.  
+- `functions`: A list of functions that the assistant is equipped to perform, with each function described in detail:  
+  - `module_name`: Identifies the module containing the implementation of the function.  
+  - `class_name`: Specifies the class where the function is defined, organizing the code for better structure and readability.  
+  - `function_name`: Indicates the specific function to be executed, aligning with its intended purpose.  
+  - `configuration`: Contains detailed settings and parameters for the function at the function level. These configurations can override the assistant-level configuration, allowing tailored operation for specific functions.
+
+## Debug Locally
+
+### Clone the projects
 
 ### .env File
 
@@ -65,37 +103,6 @@ embedding_model=EMBEDDING_MODEL
 ```
 
 Replace the placeholders (`YOUR_AWS_REGION`, `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `OPENAI_API_KEY`, and `EMBEDDING_MODEL`) with your actual AWS region, AWS Access Key ID, AWS Secret Access Key, OpenAI API Key, and Embedding Model.
-
-### Assistant Configuration Setup
-
-The following JSON structure is utilized to define and configure an assistant within the **`oae-assistants`** table. This structure specifies the assistant's type, unique identifier, name, and the various functions it can perform.
-
-```json
-{
-    "assistant_type": <ASSISTANT_TYPE>,
-    "assistant_id": <ASSISTANT_ID>,
-    "assistant_name": <ASSISTANT_NAME>,
-    "functions": [
-        {
-            "module_name": <MODULE_NAME>,
-            "class_name": <CLASS_NAME>,
-            "function_name": <FUNCTION_NAME>,
-            "configuration": {
-                ...<CONFIGURATION>
-            }
-        }
-    ]
-}
-```
-
-- `assistant_type`: Defines the category of the assistant, such as a conversational agent or a task-specific agent.
-- `assistant_id`: A unique identifier assigned to the assistant by OpenAI, ensuring its distinct recognition within the system.
-- `assistant_name`: The designated name for the assistant, used for display and reference purposes.
-- `functions`: An array of functions that the assistant can perform. Each function is detailed as follows:
-  - `module_name`: The name of the module containing the function.
-  - `class_name`: The name of the class where the function is defined.
-  - `function_name`: The specific function to be executed.
-  - `configuration`: Configuration details for the function, which include various settings and parameters necessary for its operation.
 
 ## Usage
 
@@ -875,3 +882,9 @@ ASSISTANT_VOICE=your_assistant_voice_id_here
    ```
 
 This setup will allow the chatbot to interact with users, query an external Redis vector search database, and provide summarized responses based on the user's queries. The voice version will use voice recognition for input and text-to-speech for output.
+
+### Fine tuning module
+
+#### Generate the fine tuning messages.
+
+#### Upload find tuning messages for training.

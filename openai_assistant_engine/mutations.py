@@ -8,7 +8,6 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
-
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -265,6 +264,7 @@ class UploadFineTuneFile(Mutation):
     class Arguments:
         assistant_type = String(required=True)
         assistant_id = String(required=True)
+        training_percentage = Float(required=True)
         from_date = DateTime(required=True)
         to_date = DateTime(required=False)
 
