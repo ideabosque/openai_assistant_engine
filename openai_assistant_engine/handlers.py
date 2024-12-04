@@ -156,6 +156,8 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
         funct_zip_path = setting.get("funct_zip_path", "/tmp/funct_zips")
         funct_extract_path = setting.get("funct_extract_path", "/tmp/functs")
+        os.makedirs(funct_zip_path, exist_ok=True)
+        os.makedirs(funct_extract_path, exist_ok=True)
 
         stream_text_deltas_batch_size = int(
             setting.get("stream_text_deltas_batch_size", 10)
