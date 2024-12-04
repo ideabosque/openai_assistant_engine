@@ -9,11 +9,14 @@ import base64
 import functools
 import json
 import logging
+import os
 import random
+import sys
 import threading
 import time
 import traceback
 import uuid
+import zipfile
 from io import BytesIO
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional
@@ -24,6 +27,9 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
+
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,8 +37,6 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -66,7 +70,12 @@ fine_tuning_data_days_limit = None
 apigw_client = None
 aws_lambda = None
 aws_sqs = None
+aws_s3 = None
 task_queue = None
+
+funct_bucket_name = None
+funct_zip_path = None
+funct_extract_path = None
 
 # Global buffer (queue)
 stream_text_deltas_queue = Queue()
@@ -82,7 +91,7 @@ test_mode = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, task_queue, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, aws_s3, task_queue, funct_bucket_name, funct_zip_path, funct_extract_path, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
     try:
         client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -122,6 +131,12 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
                 aws_access_key_id=setting.get("aws_access_key_id"),
                 aws_secret_access_key=setting.get("aws_secret_access_key"),
             )
+            aws_s3 = boto3.client(
+                "s3",
+                region_name=setting.get("region_name"),
+                aws_access_key_id=setting.get("aws_access_key_id"),
+                aws_secret_access_key=setting.get("aws_secret_access_key"),
+            )
         else:
             aws_lambda = boto3.client(
                 "lambda",
@@ -129,11 +144,19 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
             aws_sqs = boto3.resource(
                 "sqs",
             )
+            aws_s3 = boto3.client("s3")
 
         if setting.get("task_queue_name"):
             task_queue = aws_sqs.get_queue_by_name(
                 QueueName=setting.get("task_queue_name")
             )
+
+        if setting.get("funct_bucket_name"):
+            funct_bucket_name = setting.get("funct_bucket_name")
+
+        funct_zip_path = setting.get("funct_zip_path", "/tmp/funct_zips")
+        funct_extract_path = setting.get("funct_extract_path", "/tmp/functs")
+
         stream_text_deltas_batch_size = int(
             setting.get("stream_text_deltas_batch_size", 10)
         )
@@ -532,6 +555,31 @@ def invoke_funct_on_aws_lambda(
     return
 
 
+def module_exists(logger: logging.Logger, module_name: str) -> bool:
+    """Check if the module exists in the specified path."""
+    module_dir = os.path.join(funct_extract_path, module_name)
+    if os.path.exists(module_dir) and os.path.isdir(module_dir):
+        logger.info(f"Module {module_name} found in {funct_extract_path}.")
+        return True
+    logger.info(f"Module {module_name} not found in {funct_extract_path}.")
+    return False
+
+
+def download_and_extract_module(logger: logging.Logger, module_name: str) -> None:
+    """Download and extract the module from S3 if not already extracted."""
+    key = f"{module_name}.zip"
+    zip_path = f"{funct_zip_path}/{key}"
+
+    logger.info(f"Downloading module from S3: bucket={funct_bucket_name}, key={key}")
+    aws_s3.download_file(funct_bucket_name, key, zip_path)
+    logger.info(f"Downloaded {key} from S3 to {zip_path}")
+
+    # Extract the ZIP file
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(funct_extract_path)
+    logger.info(f"Extracted module to {funct_extract_path}")
+
+
 def get_assistant_function(
     logger: logging.Logger, assistant_type: str, assistant_id: str, function_name: str
 ) -> Optional[Callable]:
@@ -544,6 +592,17 @@ def get_assistant_function(
             return None
 
         assistant_function = assistant_functions[0]
+
+        # Check if the module exists
+        if not module_exists(logger, assistant_function["module_name"]):
+            # Download and extract the module if it doesn't exist
+            download_and_extract_module(logger, assistant_function["module_name"])
+
+        # Add the extracted module to sys.path
+        module_path = f"{funct_extract_path}/{assistant_function['module_name']}"
+        if module_path not in sys.path:
+            sys.path.append(module_path)
+
         assistant_function_class = getattr(
             __import__(assistant_function["module_name"]),
             assistant_function["class_name"],

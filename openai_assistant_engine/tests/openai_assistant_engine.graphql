@@ -590,7 +590,7 @@ query getFineTuningMessage(
 mutation uploadFineTuneFile(
     $assistantType: String!,
     $assistantId: String!,
-    $trainingPercentage: String!,
+    $trainingPercentage: Float!,
     $fromDate: DateTime!,
     $toDate: DateTime
 ) {

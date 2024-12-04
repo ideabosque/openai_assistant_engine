@@ -59,6 +59,9 @@ setting = {
         },
     },
     "stream_text_deltas_batch_size": os.getenv("stream_text_deltas_batch_size"),
+    "funct_bucket_name": os.getenv("funct_bucket_name"),
+    "funct_zip_path": os.getenv("funct_zip_path"),
+    "funct_extract_path": os.getenv("funct_extract_path"),
     "connection_id": os.getenv("connection_id"),
     "endpoint_id": os.getenv("endpoint_id"),
     "test_mode": os.getenv("test_mode"),
@@ -72,10 +75,10 @@ document = Path(
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
 sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
-sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
-sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
-sys.path.insert(5, "C:/Users/bibo7/gitrepo/silvaengine/price_inquiry_funct")
-sys.path.insert(6, "C:/Users/bibo7/gitrepo/silvaengine/rfq_operation_funct")
+# sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/io_network_funct")
+# sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/marketing_collection_funct")
+# sys.path.insert(5, "C:/Users/bibo7/gitrepo/silvaengine/price_inquiry_funct")
+# sys.path.insert(6, "C:/Users/bibo7/gitrepo/silvaengine/rfq_operation_funct")
 sys.path.insert(7, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
 # sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
 # sys.path.insert(1, "/var/www/projects/openai_funct_base")
@@ -191,13 +194,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
         # print("Hello! I am an AI assistant. Please provide your detail location?")
-        # assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
-        # assistant_id = "asst_0tCDxNsScVvEVekbjSqxBThi"
-        # assistant_id = "asst_tyXJ4FnLLUAD76umXFuNoXv4"
-        # assistant_id = "asst_Xrt7Ls4Arhj4QV71mtxJcYqm"
-        # assistant_id = "asst_esIGKrZY4ikA6imyfsjvjMz3"
-        assistant_id = "asst_CRw6YN4ZAZ2w7fz7LqYetrbm"
-        # assistant_id = "asst_fJzFRggLO7tSMnDvFT6cR87u"
+        assistant_id = os.getenv("assistant_id")
         thread_id = None
         while True:
             user_input = input("You: ").strip().lower()
@@ -282,7 +279,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         channels = 1
         rate = 44100
         chunk = 1024
-        assistant_id = "asst_jUzZKojROaz6HACC1uzaqR5x"
+        assistant_id = os.getenv("assistant_id")
         thread_id = None
 
         def start_recording():
