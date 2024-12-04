@@ -65,8 +65,10 @@ from .types import (
     ToolCallType,
 )
 
+# Global Variables
 client = None
 fine_tuning_data_days_limit = None
+training_data_rate = None
 apigw_client = None
 aws_lambda = None
 aws_sqs = None
@@ -82,98 +84,119 @@ stream_text_deltas_queue = Queue()
 # Configurable batch size
 stream_text_deltas_batch_size = None
 
-## Test the waters 🧪 before diving in!
-##<--Testing Data-->##
+# Test settings
 endpoint_id = None
 connection_id = None
 test_mode = None
-##<--Testing Data-->##
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, aws_s3, task_queue, funct_bucket_name, funct_zip_path, funct_extract_path, stream_text_deltas_batch_size, endpoint_id, connection_id, test_mode
+    """
+    Initialize handlers for various services like OpenAI, AWS Lambda, SQS, S3, etc.
+
+    Args:
+        logger (logging.Logger): Logger instance to log information.
+        **setting (Dict[str, Any]): Dictionary containing various settings.
+    """
+    global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, aws_s3
+    global task_queue, funct_bucket_name, funct_zip_path, funct_extract_path, stream_text_deltas_batch_size
+    global endpoint_id, connection_id, test_mode
+
     try:
-        client = OpenAI(
-            api_key=setting["openai_api_key"],
-        )
-        fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
-        training_data_rate = float(setting.get("training_data_rate", 0.6))
-        if (
-            setting.get("api_id")
-            and setting.get("api_stage")
-            and setting.get("region_name")
-            and setting.get("aws_access_key_id")
-            and setting.get("aws_secret_access_key")
-            and setting.get("aws_secret_access_key")
-        ):
-            apigw_client = boto3.client(
-                "apigatewaymanagementapi",
-                endpoint_url=f"https://{setting['api_id']}.execute-api.{setting['region_name']}.amazonaws.com/{setting['api_stage']}",
-                region_name=setting["region_name"],
-                aws_access_key_id=setting["aws_access_key_id"],
-                aws_secret_access_key=setting["aws_secret_access_key"],
-            )
-        # Set up AWS credentials in Boto3
-        if (
-            setting.get("region_name")
-            and setting.get("aws_access_key_id")
-            and setting.get("aws_secret_access_key")
-        ):
-            aws_lambda = boto3.client(
-                "lambda",
-                region_name=setting.get("region_name"),
-                aws_access_key_id=setting.get("aws_access_key_id"),
-                aws_secret_access_key=setting.get("aws_secret_access_key"),
-            )
-            aws_sqs = boto3.resource(
-                "sqs",
-                region_name=setting.get("region_name"),
-                aws_access_key_id=setting.get("aws_access_key_id"),
-                aws_secret_access_key=setting.get("aws_secret_access_key"),
-            )
-            aws_s3 = boto3.client(
-                "s3",
-                region_name=setting.get("region_name"),
-                aws_access_key_id=setting.get("aws_access_key_id"),
-                aws_secret_access_key=setting.get("aws_secret_access_key"),
-            )
-        else:
-            aws_lambda = boto3.client(
-                "lambda",
-            )
-            aws_sqs = boto3.resource(
-                "sqs",
-            )
-            aws_s3 = boto3.client("s3")
-
-        if setting.get("task_queue_name"):
-            task_queue = aws_sqs.get_queue_by_name(
-                QueueName=setting.get("task_queue_name")
-            )
-
-        if setting.get("funct_bucket_name"):
-            funct_bucket_name = setting.get("funct_bucket_name")
-
-        funct_zip_path = setting.get("funct_zip_path", "/tmp/funct_zips")
-        funct_extract_path = setting.get("funct_extract_path", "/tmp/functs")
-        os.makedirs(funct_zip_path, exist_ok=True)
-        os.makedirs(funct_extract_path, exist_ok=True)
-
-        stream_text_deltas_batch_size = int(
-            setting.get("stream_text_deltas_batch_size", 10)
-        )
-
-        ## Test the waters 🧪 before diving in!
-        ##<--Testing Data-->##
-        endpoint_id = setting.get("endpoint_id")
-        connection_id = setting.get("connection_id")
-        test_mode = setting.get("test_mode")
-        ##<--Testing Data-->##
-
+        _initialize_openai_client(setting)
+        _set_training_parameters(setting)
+        _initialize_apigw_client(setting)
+        _initialize_aws_services(setting)
+        _initialize_task_queue(setting)
+        _setup_function_paths(setting)
+        _set_stream_text_deltas_batch_size(setting)
+        _initialize_test_settings(setting)
     except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
+        logger.error(
+            "An error occurred during handlers initialization: %s",
+            traceback.format_exc(),
+        )
         raise e
+
+
+def _initialize_openai_client(setting: Dict[str, Any]) -> None:
+    global client
+    client = OpenAI(api_key=setting.get("openai_api_key"))
+
+
+def _set_training_parameters(setting: Dict[str, Any]) -> None:
+    global fine_tuning_data_days_limit, training_data_rate
+    fine_tuning_data_days_limit = int(setting.get("fine_tuning_data_days_limit", 7))
+    training_data_rate = float(setting.get("training_data_rate", 0.6))
+
+
+def _initialize_apigw_client(setting: Dict[str, Any]) -> None:
+    global apigw_client
+    if all(
+        setting.get(k)
+        for k in [
+            "api_id",
+            "api_stage",
+            "region_name",
+            "aws_access_key_id",
+            "aws_secret_access_key",
+        ]
+    ):
+        apigw_client = boto3.client(
+            "apigatewaymanagementapi",
+            endpoint_url=f"https://{setting['api_id']}.execute-api.{setting['region_name']}.amazonaws.com/{setting['api_stage']}",
+            region_name=setting["region_name"],
+            aws_access_key_id=setting["aws_access_key_id"],
+            aws_secret_access_key=setting["aws_secret_access_key"],
+        )
+
+
+def _initialize_aws_services(setting: Dict[str, Any]) -> None:
+    global aws_lambda, aws_sqs, aws_s3
+    if all(
+        setting.get(k)
+        for k in ["region_name", "aws_access_key_id", "aws_secret_access_key"]
+    ):
+        aws_credentials = {
+            "region_name": setting["region_name"],
+            "aws_access_key_id": setting["aws_access_key_id"],
+            "aws_secret_access_key": setting["aws_secret_access_key"],
+        }
+    else:
+        aws_credentials = {}
+
+    aws_lambda = boto3.client("lambda", **aws_credentials)
+    aws_sqs = boto3.resource("sqs", **aws_credentials)
+    aws_s3 = boto3.client("s3", **aws_credentials)
+
+
+def _initialize_task_queue(setting: Dict[str, Any]) -> None:
+    global task_queue
+    if setting.get("task_queue_name"):
+        task_queue = aws_sqs.get_queue_by_name(QueueName=setting["task_queue_name"])
+
+
+def _setup_function_paths(setting: Dict[str, Any]) -> None:
+    global funct_bucket_name, funct_zip_path, funct_extract_path
+    funct_bucket_name = setting.get("funct_bucket_name")
+    funct_zip_path = setting.get("funct_zip_path", "/tmp/funct_zips")
+    funct_extract_path = setting.get("funct_extract_path", "/tmp/functs")
+    os.makedirs(funct_zip_path, exist_ok=True)
+    os.makedirs(funct_extract_path, exist_ok=True)
+
+
+def _set_stream_text_deltas_batch_size(setting: Dict[str, Any]) -> None:
+    global stream_text_deltas_batch_size
+    stream_text_deltas_batch_size = int(
+        setting.get("stream_text_deltas_batch_size", 10)
+    )
+
+
+def _initialize_test_settings(setting: Dict[str, Any]) -> None:
+    global endpoint_id, connection_id, test_mode
+    endpoint_id = setting.get("endpoint_id")
+    connection_id = setting.get("connection_id")
+    test_mode = setting.get("test_mode")
 
 
 def send_data_to_websocket_handler(
