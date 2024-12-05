@@ -397,9 +397,12 @@ variables = {
 
 This query retrieves the latest message in a specified conversation thread, providing details such as the message content, sender's role, and the timestamp of when the message was created.
 
-### Complete Integration: A Chatbot with External Redis Vector Search Database
+### Comprehensive Integration: A Chatbot with a Tailored Module for Querying an External Redis Vector Search Database
 
-The following scripts demonstrate two versions of a chatbot that leverage external functions to query data from a Redis vector search database and summarize the results for the user. The first version uses text input, while the second incorporates voice recognition for input and text-to-speech for responses.
+This section presents two advanced implementations of a chatbot designed to interact with an external Redis vector search database. These chatbots leverage custom-built modules to query the database, retrieve relevant data, and provide concise summaries for the user. 
+
+- **Version 1:** Accepts user input through text, processes the query, and delivers responses in text format.  
+- **Version 2:** Enhances accessibility by incorporating voice recognition for input and text-to-speech functionality for responses, creating a more interactive and user-friendly experience.
 
 #### Version 1: Text Input
 
