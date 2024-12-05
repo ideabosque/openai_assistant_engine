@@ -45,11 +45,9 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
    - Improves performance over time through meticulous data logging and analysis.  
    - Ensures scalability and adaptability for long-term operational success.  
 
-## OpenAI Assistant Engine Sequence Diagram
+### Sequence Diagram
 
 ![OpenAI Assistant Engine Sequence Diagram](/images/openai_assistant_engine_sequence_diagram.jpg)
-
-### Sequence Diagram Description
 
 1. **User Sends Query**: The user initiates the process by sending a query, which could be a question or task for the system to handle.
 
