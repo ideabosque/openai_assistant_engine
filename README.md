@@ -47,7 +47,7 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
 
 ## OpenAI Assistant Engine Sequence Diagram
 
-![OpenAI Assistant Engine Sequence Diagram](/images/openai_assistant_engine_sequence_diagram.png)
+![OpenAI Assistant Engine Sequence Diagram](/images/openai_assistant_engine_sequence_diagram.jpg)
 
 ### Sequence Diagram Description
 
