@@ -73,13 +73,9 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
 
 This process ensures an efficient, scalable, and asynchronous flow of data, leveraging OpenAI’s API, AWS SQS, and WebSocket for seamless real-time user interactions.
 
-## Installation and Deployment
-For detailed instructions on installation and deployment, please visit the following link: [OpenAI Deployment Guide](https://github.com/ideabosque/openai_deployment).
-
-## Configuration
-Configuring the OpenAI Assistant Engine requires setting up specific files and environment variables. Follow these steps to ensure proper configuration:
-
 ### AWS DynamoDB Tables
+
+![OpenAI Assistant Engine ER Diagram](/images/openai_assistant_engine_er_diagram.jpg)
 
 To facilitate efficient caching and streamlined data management, the following AWS DynamoDB tables are utilized:
 
@@ -94,6 +90,12 @@ To facilitate efficient caching and streamlined data management, the following A
 5. **`oae-async_tasks`**: Tracks the status of asynchronous operations initiated via the OpenAI Assistant API, enabling robust task monitoring.
 
 6. **`oae-fine_tuning_messages`**: Generates fine-tuning datasets by leveraging historical data, facilitating the continual improvement of AI model performance.
+
+## Installation and Deployment
+For detailed instructions on installation and deployment, please visit the following link: [OpenAI Deployment Guide](https://github.com/ideabosque/openai_deployment).
+
+## Configuration
+Configuring the OpenAI Assistant Engine requires setting up specific files and environment variables. Follow these steps to ensure proper configuration:
 
 ### Assistant Configuration Setup
 
