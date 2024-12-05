@@ -141,10 +141,10 @@ tts_model=tts-1  # Optional, the model used for text-to-speech conversions.
 assistant_voice=alloy  # Optional, the voice used by the assistant for text-to-speech output.
 stream_text_deltas_batch_size=10  # Optional, the batch size for processing streamed text deltas.
 funct_bucket_name=<FUNCT_BUCKET_NAME>  # Optional, the name of the AWS S3 bucket for storing function module zip files.
-funct_zip_path=<FUNCT_ZIP_PATH>  # Optional, the local directory path where function module zip files are downloaded.
+funct_zip_path=<FUNCT_ZIP_PATH>  # The local directory path where function module zip files are downloaded.
 funct_extract_path=<FUNCT_EXTRACT_PATH>  # The directory path where function modules are extracted and loaded for function calling.
-connection_id=<CONNECTION_ID>  # The WebSocket connection ID used for maintaining active WebSocket sessions.
-endpoint_id=<ENDPOINT_ID>  # The endpoint ID of the API to which requests are sent.
+connection_id=<CONNECTION_ID>  # Optional, the WebSocket connection ID used for maintaining active WebSocket sessions.
+endpoint_id=<ENDPOINT_ID>  # Optional, the endpoint ID of the API to which requests are sent.
 test_mode=<TEST_MODE>  # Specifies the test mode for local debugging. Options include: local_for_all, local_for_sqs, local_for_aws_lambda.
 assistant_id=<ASSISTANT_ID>  # The ID of the assistant instance used to process requests.
 ```
