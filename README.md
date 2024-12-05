@@ -45,6 +45,36 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
    - Improves performance over time through meticulous data logging and analysis.  
    - Ensures scalability and adaptability for long-term operational success.  
 
+## OpenAI Assistant Engine Sequence Diagram
+
+![OpenAI Assistant Engine Sequence Diagram](/images/openai_assistant_engine_sequence_diagram.png)
+
+### Sequence Diagram Description
+
+1. **User Sends Query**: The user initiates the process by sending a query, which could be a question or task for the system to handle.
+
+2. **Resolve Ask OpenAI**: The `resolve_ask_open_ai` component receives the query, processes it, and asynchronously invokes the `async_openai_assistant_stream` to handle streaming responses.
+
+3. **Async OpenAI Assistant Stream**: This component processes the query and forwards it to the `AssistantEventHandler`, which manages the event flow in a dedicated thread.
+
+4. **Assistant Event Handler**: The `AssistantEventHandler` invokes the `OpenAI Assistant API`, managing the request flow and maintaining asynchronous scalability.
+
+5. **OpenAI Assistant API**: The API processes the query using AI capabilities and invokes the `Function Calling Module` if specific external functionality is required.
+
+6. **Function Calling Module**: This module executes required operations, such as interacting with external tools, and sends the results back to the `OpenAI Assistant API`.
+
+7. **Stream Results to Queue**: The response stream from the API is sent to `stream_text_deltas_queue`, which acts as a buffer for streaming data.
+
+8. **Stream Text Deltas Customer**: The `stream_text_deltas_customer` component consumes data from the queue, processes it, and sends it to AWS SQS for scalable and reliable message delivery.
+
+9. **AWS SQS**: The processed data is stored in AWS SQS, ensuring message reliability and scalability.
+
+10. **Send Data to WebSocket**: The `send_data_to_websocket` component retrieves the data from AWS SQS and asynchronously invokes the function to transmit it over WebSocket.
+
+11. **Transmit Data by WebSocket (WSS)**: The final processed response is sent to the user in real-time over a secure WebSocket connection.
+
+This process ensures an efficient, scalable, and asynchronous flow of data, leveraging OpenAI’s API, AWS SQS, and WebSocket for seamless real-time user interactions.
+
 ## Installation and Deployment
 For detailed instructions on installation and deployment, please visit the following link: [OpenAI Deployment Guide](https://github.com/ideabosque/openai_deployment).
 
