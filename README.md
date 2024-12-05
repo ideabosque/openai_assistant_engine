@@ -1,4 +1,4 @@
-# openai_assistant_engine
+# OpenAI Assistant Engine
 
 ## **Introduction**
 
@@ -10,27 +10,43 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
 
 ### Key Features
 
-1. **Comprehensive Capabilities Utilization:**
-    - Harnesses the full potential of the OpenAI Assistant API.
-    - Performs a wide range of tasks efficiently.
-2. **Usage and Conversation Data Recording:**
-    - Meticulously records all interactions.
-    - Stores usage and conversation data for further analysis.
-    - Ensures continuous improvement by understanding user interactions.
-3. **Function Calling Management:**
-    - Manages and configures function calling within the OpenAI Assistant API.
-    - Enables interaction with external data sources.
-    - Facilitates API calls to outside systems for accessing and utilizing external information and resources.
-4. **Integration with SilverEngine AWS Serverless Framework:**
-    - Designed to be installed with the SilverEngine AWS Serverless framework.
-    - Acts as a proxy for the OpenAI Assistant API.
-    - Manages and executes required functionalities seamlessly.
-5. **Operational Efficiency and Robustness:**
-    - Ensures a robust system capable of meeting diverse operational requirements.
-    - Enhances system performance over time through detailed record-keeping and analysis.
+1. **Comprehensive Capability Utilization:**  
+   - Leverages the full potential of the OpenAI Assistant API.  
+   - Executes a diverse range of tasks with efficiency.  
+   - Adapts to various scenarios to meet user needs effectively.  
+
+2. **Usage and Interaction Data Logging:**  
+   - Accurately tracks all interactions.  
+   - Records usage and conversation data for analysis.  
+   - Drives continuous improvement by analyzing user behavior and feedback.  
+
+3. **Function Calling Configuration and Management:**  
+   - Configures and oversees function calling within the OpenAI Assistant API.  
+   - Facilitates interaction with external data sources.  
+   - Enables API calls to access and utilize external systems and resources.  
+
+4. **Message Logging for Model Fine-Tuning:**  
+   - Records and organizes conversation data for targeted fine-tuning of AI models.  
+   - Provides structured datasets to enhance model accuracy and domain adaptability.  
+   - Supports iterative training cycles to optimize performance based on user interactions.  
+
+5. **Asynchronous Task Monitoring and Management:**  
+   - Tracks and manages background tasks with real-time status updates.  
+   - Ensures error handling and recovery mechanisms for uninterrupted operations.  
+   - Optimizes resource allocation for handling multiple tasks concurrently.  
+
+6. **Integration with SilvaEngine AWS Serverless Framework:**  
+   - Designed for seamless installation with the SilvaEngine AWS Serverless framework.  
+   - Functions as a proxy for the OpenAI Assistant API.  
+   - Efficiently manages and executes necessary operations.  
+
+7. **Operational Robustness and Efficiency:**  
+   - Provides a reliable system capable of handling diverse operational needs.  
+   - Improves performance over time through meticulous data logging and analysis.  
+   - Ensures scalability and adaptability for long-term operational success.  
 
 ## Installation and Deployment
-
+For detailed instructions on installation and deployment, please visit the following link: [OpenAI Deployment Guide](https://github.com/ideabosque/openai_deployment).
 
 ## Configuration
 Configuring the OpenAI Assistant Engine requires setting up specific files and environment variables. Follow these steps to ensure proper configuration:
@@ -86,23 +102,79 @@ The following JSON structure is utilized to define and configure an assistant wi
   - `function_name`: Indicates the specific function to be executed, aligning with its intended purpose.  
   - `configuration`: Contains detailed settings and parameters for the function at the function level. These configurations can override the assistant-level configuration, allowing tailored operation for specific functions.
 
-## Debug Locally
+## Local Debugging Guide
 
-### Clone the projects
+Follow these steps to set up your development environment in VS Code for debugging and local development.
 
-### .env File
+### Step 1: Clone the Repositories
 
-Create a `.env` file in your project directory with the following content:
+Begin by cloning the necessary repositories into your projects folder:
 
-```plaintext
-region_name=YOUR_AWS_REGION
-aws_access_key_id=YOUR_AWS_ACCESS_KEY_ID
-aws_secret_access_key=YOUR_AWS_SECRET_ACCESS_KEY
-openai_api_key=OPENAI_API_KEY
-embedding_model=EMBEDDING_MODEL
+- [SilvaEngine AWS](https://github.com/ideabosque/silvaengine_aws)
+- [OpenAI Assistant Engine](https://github.com/ideabosque/openai_assistant_engine)
+- [OpenAI Function Base](https://github.com/ideabosque/openai_funct_base)
+
+### Step 2: Install Required Dependencies
+
+To set up the environment, install the necessary Python modules by running:
+
+```bash
+pip install --upgrade -r silvaengine_aws/deployment/requirements.txt
 ```
 
-Replace the placeholders (`YOUR_AWS_REGION`, `YOUR_AWS_ACCESS_KEY_ID`, `YOUR_AWS_SECRET_ACCESS_KEY`, `OPENAI_API_KEY`, and `EMBEDDING_MODEL`) with your actual AWS region, AWS Access Key ID, AWS Secret Access Key, OpenAI API Key, and Embedding Model.
+### Step 3: Configure the Environment Variables
+
+Create a `.env` file in your project directory to configure environment variables. This file is crucial for setting up local debugging and ensuring smooth API interaction. The environment variables provide configuration details such as API keys, AWS credentials, and other settings. Add the following content to your `.env` file:
+
+```bash
+region_name=<YOUR_AWS_REGION>  # The AWS region where your resources are located (e.g., us-west-2).
+aws_access_key_id=<YOUR_AWS_ACCESS_KEY_ID>  # Your AWS Access Key ID for accessing AWS resources.
+aws_secret_access_key=<YOUR_AWS_SECRET_ACCESS_KEY>  # Your AWS Secret Access Key for accessing AWS resources.
+openai_api_key=<OPENAI_API_KEY>  # The API key for accessing OpenAI services.
+api_id=<API_ID>  # Optional, the API ID for WebSocket connections if using WebSocket-based communication.
+api_stage=<API_STAGE>  # Optional, the stage (e.g., dev, prod) for the WebSocket API.
+task_queue_name=silvaengine_task_queue.fifo  # Optional, the name of the SQS FIFO queue used for asynchronous message processing.
+fine_tuning_data_days_limit=30  # Optional, the number of days of message history to consider for fine-tuning data.
+training_data_rate=0.6  # Optional, the percentage used to split training and validation data (e.g., 0.6 means 60% training and 40% validation).
+whisper_model=whisper-1  # Optional, the model used for speech-to-text conversions.
+tts_model=tts-1  # Optional, the model used for text-to-speech conversions.
+assistant_voice=alloy  # Optional, the voice used by the assistant for text-to-speech output.
+stream_text_deltas_batch_size=10  # Optional, the batch size for processing streamed text deltas.
+funct_bucket_name=<FUNCT_BUCKET_NAME>  # Optional, the name of the AWS S3 bucket for storing function module zip files.
+funct_zip_path=<FUNCT_ZIP_PATH>  # Optional, the local directory path where function module zip files are downloaded.
+funct_extract_path=<FUNCT_EXTRACT_PATH>  # The directory path where function modules are extracted and loaded for function calling.
+connection_id=<CONNECTION_ID>  # The WebSocket connection ID used for maintaining active WebSocket sessions.
+endpoint_id=<ENDPOINT_ID>  # The endpoint ID of the API to which requests are sent.
+test_mode=<TEST_MODE>  # Specifies the test mode for local debugging. Options include: local_for_all, local_for_sqs, local_for_aws_lambda.
+assistant_id=<ASSISTANT_ID>  # The ID of the assistant instance used to process requests.
+```
+
+Explanation of Key Environment Variables:
+
+1. **AWS Credentials (`region_name`, `aws_access_key_id`, `aws_secret_access_key`)**: These credentials are used to authenticate with AWS services such as S3 and SQS. Make sure these are correctly configured to avoid access issues.
+2. **OpenAI API Key (`openai_api_key`)**: This key is required to access OpenAI's services. Make sure you keep this key secure.
+3. **API Settings (`api_id`, `api_stage`)**: These are optional but important if you are using WebSocket-based communication. The `api_id` and `api_stage` identify the specific API Gateway instance.
+4. **Queue and Fine-Tuning Settings (`task_queue_name`, `fine_tuning_data_days_limit`)**: The `task_queue_name` specifies the SQS queue for processing messages asynchronously. The `fine_tuning_data_days_limit` helps control how much historical data is used for fine-tuning.
+5. **Training and Validation Split (`training_data_rate`)**: This value helps divide the data into training and validation datasets, which is essential for model fine-tuning.
+6. **Model Settings (`whisper_model`, `tts_model`, `assistant_voice`)**: These optional parameters allow you to specify the models used for speech-to-text and text-to-speech, as well as the voice type for the assistant.
+7. **Function Module Settings (`funct_bucket_name`, `funct_zip_path`, `funct_extract_path`)**: These settings are used to manage the function modules, including where they are stored (S3 bucket) and where they are extracted locally for use.
+8. **WebSocket Settings (`connection_id`, `endpoint_id`)**: If your application uses WebSockets, these settings are required to maintain and manage WebSocket connections.
+9. **Test Mode (`test_mode`)**: This variable helps control the test environment. You can run all services locally, or selectively choose to run only certain services locally (e.g., AWS Lambda or SQS).
+10. **Assistant ID (`assistant_id`)**: This is used to identify which assistant instance should process requests, which is useful when managing multiple assistants.
+
+### Step 4: Develop Custom Function Calling Modules
+
+To customize the function calling behavior, extend the `openai_funct_base` module. Add your custom function calling modules to the directory specified by `funct_extract_path`.
+
+### Step 5: Debug Using Test Scripts
+
+Use the provided test script for debugging purposes. Run the following test script from VS Code's debug mode:
+
+```bash
+openai_assistant_engine/openai_assistant_engine/tests/test_openai_assistant_engine.py
+```
+
+This will allow you to step through the code and validate your development locally.
 
 ## Usage
 
