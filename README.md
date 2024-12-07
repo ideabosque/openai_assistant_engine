@@ -45,6 +45,36 @@ Furthermore, the module is designed to be installed with the SilverEngine AWS Se
    - Improves performance over time through meticulous data logging and analysis.  
    - Ensures scalability and adaptability for long-term operational success.  
 
+### Architecture Diagram
+![OpenAI Assistant Engine Architecture Diagram](/images/openai_assistant_engine_architecture_diagram.jpg)
+
+- **User Interaction**:  
+  The **User** initiates a query via a WebSocket connection (WSS) to the **Amazon API Gateway**, which acts as the entry point for WebSocket messages.
+
+- **Amazon API Gateway**:  
+  The query is routed to an **AWS Lambda** function called **SilvaEngine Area Resource**, which processes the query and determines the appropriate action.
+
+- **AWS Lambda: SilvaEngine Area Resource**:  
+  This function forwards the processed query to another Lambda function, **SilvaEngine MicroCore OpenAI**, for advanced AI-driven processing.
+
+- **AWS Lambda: SilvaEngine MicroCore OpenAI**:  
+  This Lambda function interacts with the **OpenAI Assistant Engine**, which generates a response or action based on the query. It may also store or retrieve session data from **Amazon DynamoDB** to maintain context. If additional processing is needed, the function queues the task in **Amazon SQS (SilvaEngine Task Queue)** for asynchronous handling.
+
+- **AWS Lambda: SilvaEngine Agent Task**:  
+  Tasks queued in the **SilvaEngine Task Queue** are processed by the **SilvaEngine Agent Task** Lambda function. This function executes the queued tasks and may invoke the **OpenAI Assistant Engine** for further assistance or analysis.
+
+- **Amazon SQS: SilvaEngine Task Queue**:  
+  The **SilvaEngine Task Queue** enables asynchronous task management, ensuring that tasks are handled without blocking real-time user interactions.
+
+- **OpenAI Assistant Engine**:  
+  As the central AI coordination component, the **OpenAI Assistant Engine** processes real-time tasks, generates responses using AI models, and streams the responses back to the WebSocket connection. It may also interact with **DynamoDB** for session or context persistence.
+
+- **Amazon DynamoDB**:  
+  Used for persisting session data, user interaction history, or other critical context necessary for task processing.
+
+- **Response to User**:  
+  Once all processing is complete, the final response is streamed asynchronously back to the user through the WebSocket connection established by the **Amazon API Gateway**.
+
 ### Sequence Diagram
 
 ![OpenAI Assistant Engine Sequence Diagram](/images/openai_assistant_engine_sequence_diagram.jpg)
