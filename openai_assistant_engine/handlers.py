@@ -265,7 +265,7 @@ def _send_data_to_websocket(
         setting: Configuration settings.
     """
     if connection_id and message_group_id:
-        invoke_funct_on_aws_lambda(
+        Utility.invoke_funct_on_aws_lambda(
             logger,
             endpoint_id,
             "send_data_to_websocket",
@@ -275,6 +275,8 @@ def _send_data_to_websocket(
             },
             message_group_id=message_group_id,
             setting=setting,
+            test_mode=test_mode,
+            aws_lambda=aws_lambda,
         )
 
 
@@ -502,82 +504,6 @@ def stream_text_deltas_consumer(
         )
         consumer_event.set()
         raise e
-
-
-def invoke_funct_on_local(
-    logger: logging.Logger,
-    setting: Dict[str, Any],
-    funct: str,
-    **params: Dict[str, Any],
-) -> Dict[str, Any]:
-    try:
-        funct_on_local = setting["functs_on_local"].get(funct)
-        assert funct_on_local is not None, f"Function ({funct}) not found."
-
-        Utility.invoke_funct_on_local(
-            logger,
-            funct,
-            funct_on_local,
-            setting,
-            **params,
-        )
-    except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
-        raise e
-
-
-def invoke_funct_on_aws_lambda(
-    logger: logging.Logger,
-    endpoint_id: str,
-    funct: str,
-    params: Dict[str, Any] = {},
-    message_group_id: str = None,
-    setting: Dict[str, Any] = None,
-) -> Dict[str, Any]:
-
-    ## Test the waters 🧪 before diving in!
-    ##<--Testing Function-->##
-    if test_mode:
-        if test_mode == "local_for_all":
-            # Jump to the local function if these conditions meet.
-            return invoke_funct_on_local(logger, setting, funct, **params)
-        elif (
-            test_mode == "local_for_sqs" and not message_group_id
-        ):  # Test websocket callback with SQS from local.
-            # Jump to the local function if these conditions meet.
-            return invoke_funct_on_local(logger, setting, funct, **params)
-        elif (
-            test_mode == "local_for_aws_lambda" and task_queue is None
-        ):  # Test AWS Lambda calls from local.
-            pass
-    ##<--Testing Function-->##
-
-    # When we have both a message group and a task queue, hit the SQS 📨
-    if message_group_id and task_queue:
-        Utility.invoke_funct_on_aws_sqs(
-            logger,
-            task_queue,
-            message_group_id,
-            **{
-                "endpoint_id": endpoint_id,
-                "funct": funct,
-                "params": params,
-            },
-        )
-        return  # No need to proceed after sending the SQS message.
-
-    # If we're at the top-level, let's call the AWS Lambda directly 💻
-    Utility.invoke_funct_on_aws_lambda(
-        logger,
-        aws_lambda,
-        **{
-            "endpoint_id": endpoint_id,
-            "funct": funct,
-            "params": params,
-        },
-    )
-    return
 
 
 def module_exists(logger: logging.Logger, module_name: str) -> bool:
@@ -1232,12 +1158,14 @@ def get_current_run_id_and_start_async_task(
         if info.context.get("connectionId"):
             params["connection_id"] = info.context.get("connectionId")
 
-        invoke_funct_on_aws_lambda(
+        Utility.invoke_funct_on_aws_lambda(
             info.context["logger"],
             info.context["endpoint_id"],
             "async_openai_assistant_stream",
             params=params,
             setting=info.context["setting"],
+            test_mode=test_mode,
+            aws_lambda=aws_lambda,
         )
 
         async_task_initiated = False
@@ -2557,12 +2485,14 @@ def insert_update_fine_tuning_messages_handler(
             "arguments": kwargs,
         }
 
-        invoke_funct_on_aws_lambda(
+        Utility.invoke_funct_on_aws_lambda(
             info.context["logger"],
             info.context["endpoint_id"],
             "async_insert_update_fine_tuning_messages",
             params=params,
             setting=info.context["setting"],
+            test_mode=test_mode,
+            aws_lambda=aws_lambda,
         )
 
         return AsyncTaskType(

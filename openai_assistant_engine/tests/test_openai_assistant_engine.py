@@ -23,7 +23,6 @@ import pyaudio
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydub import AudioSegment
-from silvaengine_utility import Utility
 
 load_dotenv()
 setting = {
@@ -89,6 +88,7 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 from openai_assistant_engine import OpenaiAssistantEngine
+from silvaengine_utility import Utility
 
 
 def record_audio(frames, stream, chunk):
