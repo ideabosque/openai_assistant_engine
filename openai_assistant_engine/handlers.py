@@ -442,7 +442,7 @@ def batch_processing_loop(
                 logger,
                 endpoint_id,
                 connection_id,
-                {"task_done": True},
+                {"message_group_id": message_group_id, "is_message_end": True},
                 message_group_id,
                 setting,
             )
@@ -476,7 +476,14 @@ def stream_text_deltas_consumer(
         message_group_id = (
             f"{connection_id}-{str(uuid.uuid1().int >> 64)}" if connection_id else None
         )
-
+        _send_data_to_websocket(
+            logger,
+            endpoint_id,
+            connection_id,
+            {"message_group_id": message_group_id, "data_format": data_format},
+            message_group_id,
+            setting,
+        )
         # Decide which processing loop to use based on the data format
         if data_format == "json":
             json_processing_loop(
