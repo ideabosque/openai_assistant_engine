@@ -8,6 +8,7 @@ import traceback
 from typing import Any, Dict
 
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
+
 from silvaengine_utility import JSON
 
 from .handlers import (
@@ -82,9 +83,10 @@ class InsertUpdateAssistant(Mutation):
 
     class Arguments:
         assistant_type = String(required=True)
+        assistant_version_uuid = String(required=False)
         assistant_id = String(required=False)
         assistant_name = String(required=True)
-        description = String(required=False)
+        assistant_description = String(required=False)
         model = String(required=True)
         instructions = String(required=True)
         tools = List(JSON, required=False)
@@ -93,8 +95,10 @@ class InsertUpdateAssistant(Mutation):
         temperature = Float(required=False)
         top_p = Float(required=False)
         response_format = String(required=False)
-        configuration = JSON(required=True)
-        functions = List(JSON, required=True)
+        json_schema = JSON(required=False)
+        configuration = JSON(required=False)
+        functions = List(JSON, required=False)
+        status = String(required=False)
         updated_by = String(required=True)
 
     @staticmethod
@@ -116,7 +120,7 @@ class DeleteAssistant(Mutation):
 
     class Arguments:
         assistant_type = String(required=True)
-        assistant_id = String(required=True)
+        assistant_version_uuid = String(required=True)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteAssistant":

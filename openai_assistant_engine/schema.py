@@ -160,7 +160,8 @@ class Query(ObjectType):
         AssistantType,
         required=True,
         assistant_type=String(required=True),
-        assistant_id=String(required=True),
+        assistant_version_uuid=String(required=False),
+        assistant_id=String(required=False),
     )
 
     assistant_list = Field(
@@ -169,6 +170,7 @@ class Query(ObjectType):
         limit=Int(),
         assistant_type=String(),
         assistant_name=String(),
+        assistant_id=String(),
     )
 
     thread = Field(

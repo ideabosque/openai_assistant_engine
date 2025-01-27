@@ -542,9 +542,11 @@ def get_assistant_function(
     logger: logging.Logger, assistant_type: str, assistant_id: str, function_name: str
 ) -> Optional[Callable]:
     try:
-        assistant = get_assistant(assistant_type, assistant_id)
+        assistant = _get_assistant(assistant_type, assistant_id)
         assistant_functions = list(
-            filter(lambda x: x["function_name"] == function_name, assistant.functions)
+            filter(
+                lambda x: x["function_name"] == function_name, assistant["functions"]
+            )
         )
         if len(assistant_functions) == 0:
             return None
@@ -567,9 +569,7 @@ def get_assistant_function(
         )
 
         configuration = (
-            assistant.configuration.__dict__["attribute_values"]
-            if assistant.__dict__["attribute_values"].get("configuration")
-            else {}
+            assistant["configuration"] if assistant.get("configuration") else {}
         )
         if assistant_function.get("configuration"):
             configuration = dict(configuration, **assistant_function["configuration"])
@@ -1304,68 +1304,122 @@ def resolve_ask_open_ai_handler(
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
-    return AssistantModel.get(assistant_type, assistant_id)
+def get_assistant(assistant_type: str, assistant_version_uuid: str) -> AssistantModel:
+    return AssistantModel.get(assistant_type, assistant_version_uuid)
+
+
+@retry(
+    reraise=True,
+    wait=wait_exponential(multiplier=1, max=60),
+    stop=stop_after_attempt(5),
+)
+def _get_active_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
+    results = AssistantModel.assistant_id_index.query(
+        assistant_type,
+        AssistantModel.assistant_id == assistant_id,
+        filter_condition=(AssistantModel.status == "active"),
+        scan_index_forward=False,
+        limit=1,
+    )
+    assistant = results.next()
+
+    return assistant
 
 
 def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
-    _assistant = client.beta.assistants.retrieve(assistant_id)
-    assistant = get_assistant(assistant_type, assistant_id)
+    # _assistant = client.beta.assistants.retrieve(assistant_id)
+    # assistant = get_assistant(assistant_type, assistant_version_uuid)
+
+    assistant = _get_active_assistant(assistant_type, assistant_id)
+
     return {
         "assistant_type": assistant.assistant_type,
+        # "assistant_version_uuid": assistant.assistant_version_uuid,
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
-        "description": _assistant.description,
-        "model": _assistant.model,
-        "instructions": _assistant.instructions,
-        "tools": _assistant.tools,
-        "tool_resources": _assistant.tool_resources,
-        "metadata": _assistant.metadata,
-        "temperature": _assistant.temperature,
-        "top_p": _assistant.top_p,
-        "response_format": (
-            _assistant.response_format
-            if isinstance(_assistant.response_format, str)
-            and _assistant.response_format == "auto"
-            else (
-                _assistant.response_format["type"]
-                if isinstance(_assistant.response_format, dict)
-                else _assistant.response_format.type
-            )
-        ),
+        "assistant_description": assistant.assistant_description,
+        "model": assistant.model,
+        "instructions": assistant.instructions,
+        "tools": assistant.tools,
+        "tool_resources": assistant.tool_resources,
+        "metadata": assistant.metadata,
+        "temperature": assistant.temperature,
+        "top_p": assistant.top_p,
+        "response_format": assistant.response_format,
+        "json_schema": assistant.json_schema,
         "configuration": assistant.configuration,
         "functions": assistant.functions,
+        # "status": assistant.status,
     }
 
 
-def get_assistant_range_key(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+# def get_assistant_range_key(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
+#     try:
+#         assistant = client.beta.assistants.create(
+#             name=kwargs["assistant_name"],
+#             description=kwargs.get("description"),
+#             model=kwargs["model"],
+#             instructions=kwargs.get("instructions"),
+#             tools=kwargs.get("tools", []),
+#             tool_resources=kwargs.get("tool_resources"),
+#             metadata=kwargs.get("metadata", {}),
+#             temperature=kwargs.get("temperature"),
+#             top_p=kwargs.get("top_p"),
+#             response_format=(
+#                 kwargs.get("response_format", "auto")
+#                 if kwargs.get("response_format", "auto") == "auto"
+#                 else {"type": kwargs["response_format"]}
+#             ),
+#         )
+#         return assistant.id
+#     except Exception as e:
+#         log = traceback.format_exc()
+#         info.context.get("logger").error(log)
+#         raise e
+
+
+def _insert_update_assistant(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
     try:
-        assistant = client.beta.assistants.create(
-            name=kwargs["assistant_name"],
-            description=kwargs.get("description"),
-            model=kwargs["model"],
-            instructions=kwargs.get("instructions"),
-            tools=kwargs.get("tools", []),
-            tool_resources=kwargs.get("tool_resources"),
-            metadata=kwargs.get("metadata", {}),
-            temperature=kwargs.get("temperature"),
-            top_p=kwargs.get("top_p"),
-            response_format=(
-                kwargs.get("response_format", "auto")
-                if kwargs.get("response_format", "auto") == "auto"
-                else {"type": kwargs["response_format"]}
-            ),
-        )
-        return assistant.id
+        attributes = {
+            k: (
+                {"type": "json_schema", "json_schema": kwargs["json_schema"]}
+                if v == "response_format" and kwargs.get(v) == "json_schema"
+                else (
+                    {"type": "json_object"}
+                    if v == "response_format" and kwargs.get(v) == "json_object"
+                    else kwargs[v]
+                )
+            )
+            for k, v in {
+                "assistant_id": "assistant_id",
+                "name": "assistant_name",
+                "description": "assistant_description",
+                "model": "model",
+                "instructions": "instructions",
+                "tools": "tools",
+                "tool_resources": "tool_resources",
+                "metadata": "metadata",
+                "temperature": "temperature",
+                "top_p": "top_p",
+                "response_format": "response_format",
+            }.items()
+            if v in kwargs
+        }
+
+        if "assistant_id" in attributes:
+            assistant = client.beta.assistants.update(**attributes)
+        else:
+            assistant = client.beta.assistants.create(**attributes)
+        return assistant
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
         raise e
 
 
-def get_assistant_count(assistant_type: str, assistant_id: str) -> int:
+def get_assistant_count(assistant_type: str, assistant_version_uuid: str) -> int:
     return AssistantModel.count(
-        assistant_type, AssistantModel.assistant_id == assistant_id
+        assistant_type, AssistantModel.assistant_version_uuid == assistant_version_uuid
     )
 
 
@@ -1382,17 +1436,17 @@ def _get_assistant_response_format(assistant: object) -> str:
 
 
 def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> AssistantType:
-    _assistant = client.beta.assistants.retrieve(assistant.assistant_id)
+    # _assistant = client.beta.assistants.retrieve(assistant.assistant_id)
     assistant = assistant.__dict__["attribute_values"]
-    assistant["description"] = _assistant.description
-    assistant["model"] = _assistant.model
-    assistant["instructions"] = _assistant.instructions
-    assistant["tools"] = _assistant.tools
-    assistant["tool_resources"] = _assistant.tool_resources
-    assistant["metadata"] = _assistant.metadata
-    assistant["temperature"] = _assistant.temperature
-    assistant["top_p"] = _assistant.top_p
-    assistant["response_format"] = _get_assistant_response_format(_assistant)
+    # assistant["description"] = _assistant.description
+    # assistant["model"] = _assistant.model
+    # assistant["instructions"] = _assistant.instructions
+    # assistant["tools"] = _assistant.tools
+    # assistant["tool_resources"] = _assistant.tool_resources
+    # assistant["metadata"] = _assistant.metadata
+    # assistant["temperature"] = _assistant.temperature
+    # assistant["top_p"] = _assistant.top_p
+    # assistant["response_format"] = _get_assistant_response_format(_assistant)
 
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
 
@@ -1400,21 +1454,30 @@ def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> Assistan
 def resolve_assistant_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> AssistantType:
+    if "assistant_id" in kwargs:
+        return get_assistant_type(
+            info,
+            _get_active_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
+        )
+
     return get_assistant_type(
         info,
-        get_assistant(kwargs.get("assistant_type"), kwargs.get("assistant_id")),
+        get_assistant(
+            kwargs.get("assistant_type"), kwargs.get("assistant_version_uuid")
+        ),
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["assistant_type", "assistant_id"],
+    attributes_to_get=["assistant_type", "assistant_version_uuid", "assistant_id"],
     list_type_class=AssistantListType,
     type_funct=get_assistant_type,
 )
 def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     assistant_type = kwargs.get("assistant_type")
     assistant_name = kwargs.get("assistant_name")
+    assistant_id = kwargs.get("assistant_id")
 
     args = []
     inquiry_funct = AssistantModel.scan
@@ -1422,6 +1485,10 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
     if assistant_type:
         args = [assistant_type, None]
         inquiry_funct = AssistantModel.query
+        if assistant_id:
+            inquiry_funct = AssistantModel.assistant_id_index.query
+            args[1] = AssistantModel.assistant_id == assistant_id
+            count_funct = AssistantModel.assistant_id_index.count
 
     the_filters = None
     if assistant_name:
@@ -1432,12 +1499,47 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
     return inquiry_funct, count_funct, args
 
 
+def _inactivate_assistants(
+    info: ResolveInfo, assistant_type: str, assistant_id: str
+) -> None:
+    """
+    Inactivates all active assistants with the given assistant_type and assistant_id.
+
+    Args:
+        info: ResolveInfo object containing context information
+        assistant_type: Type of the assistant to inactivate
+        assistant_id: ID of the assistant to inactivate
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If there is an error during inactivation process
+    """
+    try:
+        # Query for active assistants matching the type and ID
+        assistants = AssistantModel.assistant_id_index.query(
+            assistant_type,
+            AssistantModel.assistant_id == assistant_id,
+            filter_condition=AssistantModel.status == "active",
+        )
+        # Update status to inactive for each matching assistant
+        for assistant in assistants:
+            assistant.status = "inactive"
+            assistant.save()
+        return
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
 @insert_update_decorator(
     keys={
         "hash_key": "assistant_type",
-        "range_key": "assistant_id",
+        "range_key": "assistant_version_uuid",
     },
-    range_key_funct=get_assistant_range_key,
+    # range_key_funct=get_assistant_range_key,
     model_funct=get_assistant,
     count_funct=get_assistant_count,
     type_funct=get_assistant_type,
@@ -1446,19 +1548,67 @@ def insert_update_assistant_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> None:
     assistant_type = kwargs["assistant_type"]
-    assistant_id = kwargs["assistant_id"]
+    assistant_version_uuid = kwargs["assistant_version_uuid"]
     if kwargs.get("entity") is None:
+        cols = {
+            "assistant_name": kwargs["assistant_name"],
+            "updated_by": kwargs["updated_by"],
+            "created_at": pendulum.now("UTC"),
+            "updated_at": pendulum.now("UTC"),
+        }
+
+        if "assistant_id" in kwargs:
+            active_assistant = _get_active_assistant(
+                assistant_type, kwargs["assistant_id"]
+            )
+            cols.update(
+                {
+                    "configuration": active_assistant.configuration,
+                    "functions": active_assistant.functions,
+                }
+            )
+            _inactivate_assistants(info, assistant_type, kwargs["assistant_id"])
+
+        if "configuration" in kwargs:
+            cols["configuration"] = kwargs["configuration"]
+        if "functions" in kwargs:
+            cols["functions"] = kwargs["functions"]
+
+        _assistant = _insert_update_assistant(
+            info,
+            **kwargs,
+        )
+
+        cols.update(
+            {
+                "assistant_id": _assistant.id,
+                "assistant_description": _assistant.description,
+                "model": _assistant.model,
+                "instructions": _assistant.instructions,
+                "tools": _assistant.tools,
+                "tool_resources": {
+                    k: v
+                    for k, v in {
+                        "code_interpreter": _assistant.tool_resources.code_interpreter,
+                        "file_search": _assistant.tool_resources.file_search,
+                    }.items()
+                    if v is not None
+                }
+                or None,
+                "metadata": _assistant.metadata,
+                "temperature": _assistant.temperature,
+                "top_p": _assistant.top_p,
+                "response_format": _get_assistant_response_format(_assistant),
+                "status": "active",
+            }
+        )
+        if cols["response_format"] == "json_schema":
+            cols["json_schema"] = _assistant.response_format.json_schema
+
         AssistantModel(
             assistant_type,
-            assistant_id,
-            **{
-                "assistant_name": kwargs["assistant_name"],
-                "configuration": kwargs["configuration"],
-                "functions": kwargs["functions"],
-                "updated_by": kwargs["updated_by"],
-                "created_at": pendulum.now("UTC"),
-                "updated_at": pendulum.now("UTC"),
-            },
+            assistant_version_uuid,
+            **cols,
         ).save()
         return
 
@@ -1467,53 +1617,84 @@ def insert_update_assistant_handler(
         AssistantModel.updated_by.set(kwargs.get("updated_by")),
         AssistantModel.updated_at.set(pendulum.now("UTC")),
     ]
-    updated_assistant_attributes = {"assistant_id": assistant_id}
 
-    if kwargs.get("assistant_name") is not None:
-        updated_assistant_attributes["name"] = kwargs["assistant_name"]
-        actions.append(AssistantModel.assistant_name.set(kwargs.get("assistant_name")))
-    if kwargs.get("description") is not None:
-        updated_assistant_attributes["description"] = kwargs["description"]
-    if kwargs.get("model") is not None:
-        updated_assistant_attributes["model"] = kwargs["model"]
-    if kwargs.get("instructions") is not None:
-        updated_assistant_attributes["instructions"] = kwargs["instructions"]
-    if kwargs.get("tools") is not None:
-        updated_assistant_attributes["tools"] = kwargs["tools"]
-    if kwargs.get("tool_resources") is not None:
-        updated_assistant_attributes["tool_resources"] = kwargs["tool_resources"]
-    if kwargs.get("metadata") is not None:
-        updated_assistant_attributes["metadata"] = kwargs["metadata"]
-    if kwargs.get("temperature") is not None:
-        updated_assistant_attributes["temperature"] = kwargs["temperature"]
-    if kwargs.get("top_p") is not None:
-        updated_assistant_attributes["top_p"] = kwargs["top_p"]
-    if kwargs.get("response_format") is not None:
-        updated_assistant_attributes["response_format"] = (
-            kwargs["response_format"]
-            if kwargs["response_format"] == "auto"
-            else {"type": kwargs["response_format"]}
+    if "status" in kwargs and (
+        kwargs["status"] == "active" and assistant.status == "inactive"
+    ):
+        _assistant = _insert_update_assistant(
+            info,
+            **dict(
+                Utility.json_loads(
+                    Utility.json_dumps(assistant.__dict__["attribute_values"]),
+                    parser_number=False,
+                ),
+                **kwargs,
+            ),
         )
-    if kwargs.get("configuration") is not None:
-        actions.append(AssistantModel.configuration.set(kwargs.get("configuration")))
-    if kwargs.get("functions") is not None:
-        actions.append(AssistantModel.functions.set(kwargs.get("functions")))
+        _inactivate_assistants(info, assistant_type, assistant.assistant_id)
 
-    client.beta.assistants.update(**updated_assistant_attributes)
+    # Map of kwargs keys to assitant attributes
+    field_map = {
+        "configuration": AssistantModel.configuration,
+        "functions": AssistantModel.functions,
+        "status": AssistantModel.status,
+    }
+
+    # Add actions dynamically based on the presence of keys in kwargs
+    for key, field in field_map.items():
+        if key in kwargs:  # Check if the key exists in kwargs
+            actions.append(field.set(None if kwargs[key] == "null" else kwargs[key]))
+
+    # Update the assitant
     assistant.update(actions=actions)
 
 
 @delete_decorator(
     keys={
         "hash_key": "assistant_type",
-        "range_key": "assistant_id",
+        "range_key": "assistant_version_uuid",
     },
     model_funct=get_assistant,
 )
 def delete_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
-    client.beta.assistants.delete(kwargs.get("assistant_id"))
     kwargs.get("entity").delete()
     return True
+
+
+def archive_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
+    """
+    Archives an assistant by deleting it from the client and updating its status in the database.
+
+    Args:
+        info: ResolveInfo object containing context information
+        **kwargs: Dictionary containing assistant_id and assistant_type
+
+    Returns:
+        bool: True if archiving was successful
+
+    Raises:
+        Exception: If there is an error during archiving process
+    """
+    try:
+        # Delete the assistant from the client
+        client.beta.assistants.delete(kwargs.get("assistant_id"))
+
+        # Query for all instances of this assistant
+        assistants = AssistantModel.assistant_id_index.query(
+            kwargs.get("assistant_type"),
+            AssistantModel.assistant_id == kwargs.get("assistant_id"),
+        )
+
+        # Update status to archived for each instance
+        for assistant in assistants:
+            assistant.status = "archived"
+            assistant.save()
+        return True
+    except Exception as e:
+        # Log the full traceback if an error occurs
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
 
 
 @retry(

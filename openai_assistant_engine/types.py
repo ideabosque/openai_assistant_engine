@@ -5,6 +5,7 @@ from __future__ import print_function
 __author__ = "bibow"
 
 from graphene import Boolean, DateTime, Float, Int, List, ObjectType, String
+
 from silvaengine_dynamodb_base import ListObjectType
 from silvaengine_utility import JSON
 
@@ -46,19 +47,22 @@ class OpenAIFileType(ObjectType):
 
 class AssistantType(ObjectType):
     assistant_type = String()
+    assistant_version_uuid = String()
     assistant_id = String()
     assistant_name = String()
-    description = String()
+    assistant_description = String()
     model = String()
     instructions = String()
+    tools = List(JSON)
+    tool_resources = JSON()
     metadata = JSON()
     temperature = Float()
     top_p = Float()
     response_format = String()
-    tools = List(JSON)
-    tool_resources = JSON()
+    json_schema = JSON()
     configuration = JSON()
     functions = List(JSON)
+    status = String()
     updated_by = String()
     created_at = DateTime()
     updated_at = DateTime()
@@ -79,6 +83,7 @@ class MessageType(ObjectType):
     message_id = String()
     role = String()
     message = String()
+    user_reference = String()
     created_at = DateTime()
 
 

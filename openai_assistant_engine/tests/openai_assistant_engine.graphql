@@ -34,19 +34,22 @@ fragment CurrentRunInfo on CurrentRunType {
 
 fragment AssistantInfo on AssistantType {
     assistantType
+    assistantVersionUuid
     assistantId
     assistantName
-    description
+    assistantDescription
     model
     instructions
+    tools
+    toolResources
     metadata
     temperature
     topP
     responseFormat
-    tools
-    toolResources
+    jsonSchema
     configuration
     functions
+    status
     updatedBy
     createdAt
     updatedAt
@@ -307,10 +310,12 @@ mutation deleteFile(
 
 query getAssistant(
     $assistantType: String!,
-    $assistantId: String!
+    $assistantVersionUuid: String,
+    $assistantId: String
 ) {
     assistant(
         assistantType: $assistantType,
+        assistantVersionUuid: $assistantVersionUuid,
         assistantId: $assistantId
     ) {
         ...AssistantInfo
@@ -321,13 +326,15 @@ query getAssistantList(
     $pageNumber: Int, 
     $limit: Int,
     $assistantType: String,
-    $assistantName: String
+    $assistantName: String,
+    $assistantId: String
 ) {
     assistantList(
         pageNumber: $pageNumber,
         limit: $limit,
         assistantType: $assistantType,
-        assistantName: $assistantName
+        assistantName: $assistantName,
+        assistantId: $assistantId
     ) {
         ...AssistantListInfo
     }
@@ -335,9 +342,10 @@ query getAssistantList(
 
 mutation insertUpdateAssistant(
     $assistantType: String!,
+    $assistantVersionUuid: String,
     $assistantId: String,
     $assistantName: String!,
-    $description: String,
+    $assistantDescription: String,
     $model: String!,
     $instructions: String!,
     $tools: [JSON],
@@ -346,15 +354,17 @@ mutation insertUpdateAssistant(
     $temperature: Float,
     $topP: Float,
     $responseFormat: String,
-    $configuration: JSON!,
-    $functions: [JSON]!,
+    $configuration: JSON,
+    $functions: [JSON],
+    $status: String,
     $updatedBy: String!
 ) {
     insertUpdateAssistant(
         assistantType: $assistantType,
+        assistantVersionUuid: $assistantVersionUuid,
         assistantId: $assistantId,
         assistantName: $assistantName,
-        description: $description,
+        assistantDescription: $assistantDescription,
         model: $model,
         instructions: $instructions,
         tools: $tools,
@@ -365,6 +375,7 @@ mutation insertUpdateAssistant(
         responseFormat: $responseFormat,
         configuration: $configuration,
         functions: $functions,
+        status: $status,
         updatedBy: $updatedBy
     ) {
         assistant{
@@ -375,11 +386,11 @@ mutation insertUpdateAssistant(
 
 mutation deleteAssistant(
     $assistantType: String!,
-    $assistantId: String!
+    $assistantVersionUuid: String!
 ) {
     deleteAssistant(
         assistantType: $assistantType,
-        assistantId: $assistantId
+        assistantVersionUuid: $assistantVersionUuid
     ) {
         ok
     }
