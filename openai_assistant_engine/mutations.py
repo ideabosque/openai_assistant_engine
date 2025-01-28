@@ -12,6 +12,7 @@ from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, Strin
 from silvaengine_utility import JSON
 
 from .handlers import (
+    archive_assistant_handler,
     delete_assistant_handler,
     delete_async_task_handler,
     delete_file_handler,
@@ -132,6 +133,25 @@ class DeleteAssistant(Mutation):
             raise e
 
         return DeleteAssistant(ok=ok)
+
+
+class ArchiveAssistant(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        assistant_type = String(required=True)
+        assistant_id = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "ArchiveAssistant":
+        try:
+            ok = archive_assistant_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return ArchiveAssistant(ok=ok)
 
 
 class InsertUpdateThread(Mutation):

@@ -499,18 +499,18 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantVersionUuid": "16976514305985417711",
-            "assistantId": "asst_BjPEdm9ehuVgEFAIsRHl28D4",
+            # "assistantVersionUuid": "16976514305985417711",
+            "assistantId": "asst_eCcy1jKhW7z78MRNzb1EDLIl",
             "assistantName": "Conversation ABC",
             "model": "gpt-4o-2024-05-13",
             "instructions": "You are a helpful assistant.",
             "configuration": {"endpoint_id": "api"},
             "functions": {},
-            "status": "active",
+            # "status": "active",
             "updatedBy": "user abc",
         }
         payload = {
@@ -521,7 +521,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_delete_assistant(self):
         variables = {
             "assistantType": "conversation",
@@ -531,6 +531,20 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
             "query": document,
             "variables": variables,
             "operation_name": "deleteAssistant",
+        }
+        response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_archive_assistant(self):
+        variables = {
+            "assistantType": "conversation",
+            "assistantId": "asst_BjPEdm9ehuVgEFAIsRHl28D4",
+        }
+        payload = {
+            "query": document,
+            "variables": variables,
+            "operation_name": "archiveAssistant",
         }
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)

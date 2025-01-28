@@ -22,6 +22,7 @@ from graphene import (
 from silvaengine_utility import JSON
 
 from .mutations import (
+    ArchiveAssistant,
     DeleteAssistant,
     DeleteAsyncTask,
     DeleteFile,
@@ -351,6 +352,7 @@ class Mutations(ObjectType):
     delete_file = DeleteFile.Field()
     insert_update_assistant = InsertUpdateAssistant.Field()
     delete_assistant = DeleteAssistant.Field()
+    archive_assistant = ArchiveAssistant.Field()
     insert_update_thread = InsertUpdateThread.Field()
     delete_thread = DeleteThread.Field()
     insert_update_message = InsertUpdateMessage.Field()

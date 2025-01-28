@@ -1314,16 +1314,19 @@ def get_assistant(assistant_type: str, assistant_version_uuid: str) -> Assistant
     stop=stop_after_attempt(5),
 )
 def _get_active_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
-    results = AssistantModel.assistant_id_index.query(
-        assistant_type,
-        AssistantModel.assistant_id == assistant_id,
-        filter_condition=(AssistantModel.status == "active"),
-        scan_index_forward=False,
-        limit=1,
-    )
-    assistant = results.next()
+    try:
+        results = AssistantModel.assistant_id_index.query(
+            assistant_type,
+            AssistantModel.assistant_id == assistant_id,
+            filter_condition=(AssistantModel.status == "active"),
+            scan_index_forward=False,
+            limit=1,
+        )
+        assistant = results.next()
 
-    return assistant
+        return assistant
+    except StopIteration:
+        return None
 
 
 def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
@@ -1534,6 +1537,24 @@ def _inactivate_assistants(
         raise e
 
 
+def object_to_dict(obj):
+    """
+    Recursively converts an object into a dictionary, including child objects.
+    """
+    if isinstance(obj, dict):  # If the object is already a dictionary
+        return {key: object_to_dict(value) for key, value in obj.items()}
+    elif hasattr(obj, "__dict__"):  # If the object has attributes
+        return {key: object_to_dict(value) for key, value in obj.__dict__.items()}
+    elif isinstance(obj, list):  # If the object is a list
+        return [object_to_dict(item) for item in obj]
+    elif isinstance(obj, tuple):  # If the object is a tuple
+        return tuple(object_to_dict(item) for item in obj)
+    elif isinstance(obj, set):  # If the object is a set
+        return {object_to_dict(item) for item in obj}
+    else:  # Base case: return the value as-is
+        return obj
+
+
 @insert_update_decorator(
     keys={
         "hash_key": "assistant_type",
@@ -1551,41 +1572,48 @@ def insert_update_assistant_handler(
     assistant_version_uuid = kwargs["assistant_version_uuid"]
     if kwargs.get("entity") is None:
         cols = {
-            "assistant_name": kwargs["assistant_name"],
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
 
+        # Handle an existing assistant if an ID is provided
+        active_assistant = None
         if "assistant_id" in kwargs:
             active_assistant = _get_active_assistant(
                 assistant_type, kwargs["assistant_id"]
             )
-            cols.update(
-                {
-                    "configuration": active_assistant.configuration,
-                    "functions": active_assistant.functions,
-                }
-            )
-            _inactivate_assistants(info, assistant_type, kwargs["assistant_id"])
+
+            if active_assistant:
+                # Retain configuration and functions, then deactivate previous versions
+                cols.update(
+                    {
+                        "configuration": active_assistant.configuration,
+                        "functions": active_assistant.functions,
+                    }
+                )
+                _inactivate_assistants(info, assistant_type, kwargs["assistant_id"])
+
+        # Retrieve an existing assistant or create a new one
+        _assistant = (
+            client.beta.assistants.retrieve(kwargs["assistant_id"])
+            if "assistant_id" in kwargs and not active_assistant
+            else _insert_update_assistant(info, **kwargs)
+        )
 
         if "configuration" in kwargs:
             cols["configuration"] = kwargs["configuration"]
         if "functions" in kwargs:
             cols["functions"] = kwargs["functions"]
 
-        _assistant = _insert_update_assistant(
-            info,
-            **kwargs,
-        )
-
         cols.update(
             {
                 "assistant_id": _assistant.id,
+                "assistant_name": _assistant.name,
                 "assistant_description": _assistant.description,
                 "model": _assistant.model,
                 "instructions": _assistant.instructions,
-                "tools": _assistant.tools,
+                "tools": [object_to_dict(tool) for tool in _assistant.tools],
                 "tool_resources": {
                     k: v
                     for k, v in {
@@ -1677,12 +1705,12 @@ def archive_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bo
     """
     try:
         # Delete the assistant from the client
-        client.beta.assistants.delete(kwargs.get("assistant_id"))
+        client.beta.assistants.delete(kwargs["assistant_id"])
 
         # Query for all instances of this assistant
         assistants = AssistantModel.assistant_id_index.query(
-            kwargs.get("assistant_type"),
-            AssistantModel.assistant_id == kwargs.get("assistant_id"),
+            kwargs["assistant_type"],
+            AssistantModel.assistant_id == kwargs["assistant_id"],
         )
 
         # Update status to archived for each instance
