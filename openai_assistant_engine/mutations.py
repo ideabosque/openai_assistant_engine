@@ -159,7 +159,6 @@ class InsertUpdateThread(Mutation):
     class Arguments:
         assistant_id = String(required=True)
         thread_id = String(required=True)
-        assistant_type = String(required=True)
         run = JSON()
         updated_by = String(required=True)
 

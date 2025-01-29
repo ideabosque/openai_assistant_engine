@@ -185,7 +185,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -581,9 +581,8 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_thread(self):
         variables = {
-            "assistantId": "123456",
+            "assistantId": "asst_EeftrgNlYJkY5N7s6pGhkF0D",
             "threadId": "XXXXXX",
-            "assistantType": "agent",
             "run": {"run_id": "yyyyy", "usage": {"a": "x"}},
             "updatedBy": "user abc",
         }
@@ -626,8 +625,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_thread_list(self):
         variables = {
-            "assistantId": "123456",
-            "assistantTypes": ["agent"],
+            "assistantId": "asst_EeftrgNlYJkY5N7s6pGhkF0D",
             "pageNumber": 1,
             "limit": 100,
         }
@@ -768,8 +766,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_fine_tuning_messages(self):
         variables = {
-            "assistantType": "conversation",
-            "assistantId": "asst_jUzZKojROaz6HACC1uzaqR5x",
+            "assistantId": "asst_EeftrgNlYJkY5N7s6pGhkF0D",
             "retrain": True,
             # "trainedMessageUuids": [
             #     "6666396519121752559",
@@ -841,12 +838,13 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_upload_fine_tune_file(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_esIGKrZY4ikA6imyfsjvjMz3",
+            "assistantId": "asst_EeftrgNlYJkY5N7s6pGhkF0D",
             "fromDate": "2024-05-13T23:23:32.000000+0800",
+            "trainingPercentage": 100,
         }
         payload = {
             "query": document,

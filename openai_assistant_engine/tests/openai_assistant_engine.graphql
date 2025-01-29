@@ -411,14 +411,12 @@ query getThread(
 query getThreadList(
     $pageNumber: Int, 
     $limit: Int,
-    $assistantId: String,
-    $assistantTypes: [String]
+    $assistantId: String
 ) {
     threadList(
         pageNumber: $pageNumber,
         limit: $limit,
-        assistantId: $assistantId,
-        assistantTypes: $assistantTypes
+        assistantId: $assistantId
     ) {
         ...ThreadListInfo
     }
@@ -427,14 +425,12 @@ query getThreadList(
 mutation insertUpdateThread(
     $assistantId: String!,
     $threadId: String!,
-    $assistantType: String!,
     $run: JSON,
     $updatedBy: String!
 ) {
     insertUpdateThread(
         assistantId: $assistantId,
         threadId: $threadId,
-        assistantType: $assistantType,
         run: $run,
         updatedBy: $updatedBy
     ) {

@@ -2146,14 +2146,13 @@ def upload_fine_tune_file_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> List[OpenAIFileType]:
     try:
-        assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
         training_percentage = kwargs["training_percentage"]
         from_date = kwargs["from_date"]
         to_date = kwargs.get("to_date")
 
         assistant = get_assistant_type(
-            info, get_assistant(assistant_type, assistant_id)
+            info, _get_active_assistant(info.context["endpoint_id"], assistant_id)
         )
 
         # Convert the date to UTC
@@ -2424,25 +2423,28 @@ def resolve_fine_tuning_message_list_handler(
 async def async_insert_update_fine_tuning_message(
     assistant_id, retrain, raw_fine_tuning_message
 ):
-    results = FineTuningMessageModel.timestamp_index.query(
-        assistant_id,
-        FineTuningMessageModel.timestamp == raw_fine_tuning_message["timestamp"],
-        filter_condition=(
-            FineTuningMessageModel.role == raw_fine_tuning_message["role"]
-        ),
-        attributes_to_get=["assistant_id", "message_uuid"],
-        limit=1,
-    )
+    try:
+        results = FineTuningMessageModel.timestamp_index.query(
+            assistant_id,
+            FineTuningMessageModel.timestamp == raw_fine_tuning_message["timestamp"],
+            filter_condition=(
+                FineTuningMessageModel.role == raw_fine_tuning_message["role"]
+            ),
+            attributes_to_get=["assistant_id", "message_uuid"],
+            limit=1,
+        )
 
-    results = [result for result in results]
-    if len(results) == 0:
+        fine_tuning_message = results.next()
+    except StopIteration:
         FineTuningMessageModel(**raw_fine_tuning_message).save()
         return raw_fine_tuning_message["message_uuid"]
 
     if retrain is False:
         return raw_fine_tuning_message["message_uuid"]
 
-    fine_tuning_message = get_fine_tuning_message(assistant_id, results[0].message_uuid)
+    fine_tuning_message = get_fine_tuning_message(
+        assistant_id, fine_tuning_message.message_uuid
+    )
     if fine_tuning_message.trained is False:
         return raw_fine_tuning_message["message_uuid"]
 
@@ -2584,6 +2586,7 @@ def async_insert_update_fine_tuning_messages(
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
                     "timestamp": int(time.mktime(message.created_at.timetuple())),
+                    "endpoint_id": endpoint_id,
                     "role": message.role,
                     "content": message.message,
                 }
@@ -2631,6 +2634,7 @@ def async_insert_update_fine_tuning_messages(
                         "thread_id": thread.thread_id,
                         "timestamp": int(time.mktime(tool_call.created_at.timetuple())),
                         "role": "tool",
+                        "endpoint_id": endpoint_id,
                         "tool_call_id": tool_call.tool_call_id,
                         "content": tool_call.content,
                     }
@@ -2647,6 +2651,7 @@ def async_insert_update_fine_tuning_messages(
                             time.mktime(earliest_the_tool_call.created_at.timetuple())
                         ),
                         "role": "assistant",
+                        "endpoint_id": endpoint_id,
                         "tool_calls": tool_calls,
                     }
                     _raw_fine_tuning_messages.append(tool_call_message)
