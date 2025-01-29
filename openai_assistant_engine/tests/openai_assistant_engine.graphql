@@ -165,7 +165,6 @@ query ping {
 }
 
 query askOpenAi(
-    $assistantType: String!,
     $assistantId: String!,
     $instructions: String,
     $additionalInstructions: String,
@@ -180,7 +179,6 @@ query askOpenAi(
     $threadId: String
 ) {
     askOpenAi(
-        assistantType: $assistantType,
         assistantId: $assistantId,
         instructions: $instructions,
         additionalInstructions: $additionalInstructions,

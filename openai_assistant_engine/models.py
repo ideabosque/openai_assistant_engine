@@ -167,6 +167,7 @@ class AsyncTaskModel(BaseModel):
 
     function_name = UnicodeAttribute(hash_key=True)
     task_uuid = UnicodeAttribute(range_key=True)
+    endpoint_id = UnicodeAttribute()
     arguments = MapAttribute(null=True)
     status = UnicodeAttribute(default="initial")
     result = UnicodeAttribute(null=True)

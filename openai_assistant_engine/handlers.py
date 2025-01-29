@@ -872,7 +872,7 @@ class EventHandler(AssistantEventHandler):
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=EventHandler(self.logger, self.assistant_type),
+            event_handler=EventHandler(self.logger, self.endpoint_id),
         ) as stream:
             stream.until_done()
 
@@ -1052,7 +1052,7 @@ def async_openai_assistant_stream(
     try:
         event_handler = EventHandler(
             logger,
-            arguments["assistant_type"],
+            endpoint_id,
             queue=queue,
         )
         with client.beta.threads.runs.stream(
@@ -1270,14 +1270,12 @@ def resolve_ask_open_ai_handler(
             f"connection_id: {info.context.get('connectionId')}"
         )
 
-        assistant_type = kwargs["assistant_type"]
         assistant_id = kwargs["assistant_id"]
         thread_id = get_thread_id(info, **kwargs)
 
         arguments = {
             "thread_id": thread_id,
             "assistant_id": assistant_id,
-            "assistant_type": assistant_type,
             "updated_by": kwargs["updated_by"],
         }
 
@@ -1767,14 +1765,14 @@ def get_thread_count(assistant_id: str, thread_id: str) -> int:
 
 def get_thread_type(info: ResolveInfo, thread: ThreadModel) -> ThreadType:
     try:
-        assistant = _get_assistant(thread.assistant_type, thread.assistant_id)
+        assistant = _get_assistant(thread.endpoint_id, thread.assistant_id)
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").exception(log)
         raise e
     thread = thread.__dict__["attribute_values"]
     thread["assistant"] = assistant
-    thread.pop("assistant_type")
+    thread.pop("endpoint_id")
     thread.pop("assistant_id")
     return ThreadType(**Utility.json_loads(Utility.json_dumps(thread)))
 

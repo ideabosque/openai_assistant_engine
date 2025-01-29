@@ -104,7 +104,6 @@ class Query(ObjectType):
     ask_open_ai = Field(
         AskOpenAIType,
         required=True,
-        assistant_type=String(required=True),
         assistant_id=String(required=True),
         instructions=String(required=False),
         additional_instructions=String(required=False),
