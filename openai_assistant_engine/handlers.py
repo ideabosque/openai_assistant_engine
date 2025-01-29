@@ -1344,14 +1344,10 @@ def _get_active_assistant(endpoint_id: str, assistant_id: str) -> AssistantModel
 
 
 def _get_assistant(endpoint_id: str, assistant_id: str) -> Dict[str, Any]:
-    # _assistant = client.beta.assistants.retrieve(assistant_id)
-    # assistant = get_assistant(endpoint_id, assistant_version_uuid)
-
     assistant = _get_active_assistant(endpoint_id, assistant_id)
 
     return {
         "endpoint_id": assistant.endpoint_id,
-        # "assistant_version_uuid": assistant.assistant_version_uuid,
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
         "assistant_description": assistant.assistant_description,
@@ -1366,33 +1362,7 @@ def _get_assistant(endpoint_id: str, assistant_id: str) -> Dict[str, Any]:
         "json_schema": assistant.json_schema,
         "configuration": assistant.configuration,
         "functions": assistant.functions,
-        # "status": assistant.status,
     }
-
-
-# def get_assistant_range_key(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
-#     try:
-#         assistant = client.beta.assistants.create(
-#             name=kwargs["assistant_name"],
-#             description=kwargs.get("description"),
-#             model=kwargs["model"],
-#             instructions=kwargs.get("instructions"),
-#             tools=kwargs.get("tools", []),
-#             tool_resources=kwargs.get("tool_resources"),
-#             metadata=kwargs.get("metadata", {}),
-#             temperature=kwargs.get("temperature"),
-#             top_p=kwargs.get("top_p"),
-#             response_format=(
-#                 kwargs.get("response_format", "auto")
-#                 if kwargs.get("response_format", "auto") == "auto"
-#                 else {"type": kwargs["response_format"]}
-#             ),
-#         )
-#         return assistant.id
-#     except Exception as e:
-#         log = traceback.format_exc()
-#         info.context.get("logger").error(log)
-#         raise e
 
 
 def _insert_update_assistant(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str:
@@ -1453,17 +1423,7 @@ def _get_assistant_response_format(assistant: object) -> str:
 
 
 def get_assistant_type(info: ResolveInfo, assistant: AssistantModel) -> AssistantType:
-    # _assistant = client.beta.assistants.retrieve(assistant.assistant_id)
     assistant = assistant.__dict__["attribute_values"]
-    # assistant["description"] = _assistant.description
-    # assistant["model"] = _assistant.model
-    # assistant["instructions"] = _assistant.instructions
-    # assistant["tools"] = _assistant.tools
-    # assistant["tool_resources"] = _assistant.tool_resources
-    # assistant["metadata"] = _assistant.metadata
-    # assistant["temperature"] = _assistant.temperature
-    # assistant["top_p"] = _assistant.top_p
-    # assistant["response_format"] = _get_assistant_response_format(_assistant)
 
     return AssistantType(**Utility.json_loads(Utility.json_dumps(assistant)))
 
