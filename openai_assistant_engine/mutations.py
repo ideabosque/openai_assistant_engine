@@ -83,7 +83,6 @@ class InsertUpdateAssistant(Mutation):
     assistant = Field(AssistantType)
 
     class Arguments:
-        assistant_type = String(required=True)
         assistant_version_uuid = String(required=False)
         assistant_id = String(required=False)
         assistant_name = String(required=True)
@@ -107,6 +106,7 @@ class InsertUpdateAssistant(Mutation):
         root: Any, info: Any, **kwargs: Dict[str, Any]
     ) -> "InsertUpdateAssistant":
         try:
+            kwargs["endpoint_id"] = info.context["endpoint_id"]
             assistant = insert_update_assistant_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
@@ -120,12 +120,12 @@ class DeleteAssistant(Mutation):
     ok = Boolean()
 
     class Arguments:
-        assistant_type = String(required=True)
         assistant_version_uuid = String(required=True)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteAssistant":
         try:
+            kwargs["endpoint_id"] = info.context["endpoint_id"]
             ok = delete_assistant_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
@@ -139,7 +139,6 @@ class ArchiveAssistant(Mutation):
     ok = Boolean()
 
     class Arguments:
-        assistant_type = String(required=True)
         assistant_id = String(required=True)
 
     @staticmethod

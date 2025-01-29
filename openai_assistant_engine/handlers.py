@@ -539,10 +539,10 @@ def download_and_extract_module(logger: logging.Logger, module_name: str) -> Non
 
 
 def get_assistant_function(
-    logger: logging.Logger, assistant_type: str, assistant_id: str, function_name: str
+    logger: logging.Logger, endpoint_id: str, assistant_id: str, function_name: str
 ) -> Optional[Callable]:
     try:
-        assistant = _get_assistant(assistant_type, assistant_id)
+        assistant = _get_assistant(endpoint_id, assistant_id)
         assistant_functions = list(
             filter(
                 lambda x: x["function_name"] == function_name, assistant["functions"]
@@ -591,7 +591,7 @@ def update_thread_and_insert_message(
     info: ResolveInfo, kwargs: Dict[str, Any], result: Any, role: str
 ) -> None:
     update_kwargs = {
-        "assistant_type": kwargs.get("assistant_type"),
+        "endpoint_id": info.context["endpoint_id"],
         "assistant_id": kwargs["assistant_id"],
         "thread_id": result.thread_id,
         "run": {
@@ -683,6 +683,7 @@ def assistant_decorator() -> Callable:
 def insert_update_async_task(
     function_name: str,
     task_uuid: str,
+    endpoint_id: str = None,
     status: str = None,
     arguments: Dict[str, any] = None,
     result: str = None,
@@ -693,6 +694,7 @@ def insert_update_async_task(
             function_name,
             task_uuid,
             **{
+                "endpoint_id": endpoint_id,
                 "created_at": pendulum.now("UTC"),
                 "updated_at": pendulum.now("UTC"),
             },
@@ -723,13 +725,19 @@ def async_task_decorator() -> Callable:
         def wrapper_function(*args: List, **kwargs: Dict[str, any]) -> Any:
             function_name = original_function.__name__
             task_uuid = args[1]
+            endpoint_id = args[2]
             try:
                 args[0].info(
                     f"task_uuid: {task_uuid} is started at {time.strftime('%X')}."
                 )
 
                 ## insert an entry into sync_tasks table.
-                insert_update_async_task(function_name, task_uuid, arguments=args[-1])
+                insert_update_async_task(
+                    function_name,
+                    task_uuid,
+                    endpoint_id=endpoint_id,
+                    arguments=args[-1],
+                )
 
                 result = original_function(*args, **kwargs)
 
@@ -795,11 +803,11 @@ class EventHandler(AssistantEventHandler):
     def __init__(
         self,
         logger: logging.Logger,
-        assistant_type: str,
+        endpoint_id: str,
         queue: Optional[Queue] = None,
     ):
         self.logger = logger
-        self.assistant_type = assistant_type
+        self.endpoint_id = endpoint_id
         self.queue = queue
         AssistantEventHandler.__init__(self)
 
@@ -822,7 +830,7 @@ class EventHandler(AssistantEventHandler):
         for tool in data.required_action.submit_tool_outputs.tool_calls:
             assistant_function = get_assistant_function(
                 self.logger,
-                self.assistant_type,
+                self.endpoint_id,
                 data.assistant_id,
                 tool.function.name,
             )
@@ -1036,6 +1044,7 @@ def resolve_last_message_handler(
 def async_openai_assistant_stream(
     logger: logging.Logger,
     task_uuid: str,
+    endpoint_id: str,
     stream_event: threading.Event,
     queue: Queue,
     arguments: Dict[str, Any],
@@ -1104,7 +1113,14 @@ def async_openai_assistant_stream_handler(
         stream_event = threading.Event()
         stream_thread = threading.Thread(
             target=async_openai_assistant_stream,
-            args=(logger, task_uuid, stream_event, stream_queue, arguments),
+            args=(
+                logger,
+                task_uuid,
+                endpoint_id,
+                stream_event,
+                stream_queue,
+                arguments,
+            ),
         )
         stream_thread.start()
 
@@ -1304,8 +1320,8 @@ def resolve_ask_open_ai_handler(
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def get_assistant(assistant_type: str, assistant_version_uuid: str) -> AssistantModel:
-    return AssistantModel.get(assistant_type, assistant_version_uuid)
+def get_assistant(endpoint_id: str, assistant_version_uuid: str) -> AssistantModel:
+    return AssistantModel.get(endpoint_id, assistant_version_uuid)
 
 
 @retry(
@@ -1313,10 +1329,10 @@ def get_assistant(assistant_type: str, assistant_version_uuid: str) -> Assistant
     wait=wait_exponential(multiplier=1, max=60),
     stop=stop_after_attempt(5),
 )
-def _get_active_assistant(assistant_type: str, assistant_id: str) -> AssistantModel:
+def _get_active_assistant(endpoint_id: str, assistant_id: str) -> AssistantModel:
     try:
         results = AssistantModel.assistant_id_index.query(
-            assistant_type,
+            endpoint_id,
             AssistantModel.assistant_id == assistant_id,
             filter_condition=(AssistantModel.status == "active"),
             scan_index_forward=False,
@@ -1329,14 +1345,14 @@ def _get_active_assistant(assistant_type: str, assistant_id: str) -> AssistantMo
         return None
 
 
-def _get_assistant(assistant_type: str, assistant_id: str) -> Dict[str, Any]:
+def _get_assistant(endpoint_id: str, assistant_id: str) -> Dict[str, Any]:
     # _assistant = client.beta.assistants.retrieve(assistant_id)
-    # assistant = get_assistant(assistant_type, assistant_version_uuid)
+    # assistant = get_assistant(endpoint_id, assistant_version_uuid)
 
-    assistant = _get_active_assistant(assistant_type, assistant_id)
+    assistant = _get_active_assistant(endpoint_id, assistant_id)
 
     return {
-        "assistant_type": assistant.assistant_type,
+        "endpoint_id": assistant.endpoint_id,
         # "assistant_version_uuid": assistant.assistant_version_uuid,
         "assistant_id": assistant.assistant_id,
         "assistant_name": assistant.assistant_name,
@@ -1420,9 +1436,9 @@ def _insert_update_assistant(info: ResolveInfo, **kwargs: Dict[str, Any]) -> str
         raise e
 
 
-def get_assistant_count(assistant_type: str, assistant_version_uuid: str) -> int:
+def get_assistant_count(endpoint_id: str, assistant_version_uuid: str) -> int:
     return AssistantModel.count(
-        assistant_type, AssistantModel.assistant_version_uuid == assistant_version_uuid
+        endpoint_id, AssistantModel.assistant_version_uuid == assistant_version_uuid
     )
 
 
@@ -1460,33 +1476,33 @@ def resolve_assistant_handler(
     if "assistant_id" in kwargs:
         return get_assistant_type(
             info,
-            _get_active_assistant(kwargs["assistant_type"], kwargs["assistant_id"]),
+            _get_active_assistant(info.context["endpoint_id"], kwargs["assistant_id"]),
         )
 
     return get_assistant_type(
         info,
         get_assistant(
-            kwargs.get("assistant_type"), kwargs.get("assistant_version_uuid")
+            info.context["endpoint_id"], kwargs.get("assistant_version_uuid")
         ),
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["assistant_type", "assistant_version_uuid", "assistant_id"],
+    attributes_to_get=["endpoint_id", "assistant_version_uuid", "assistant_id"],
     list_type_class=AssistantListType,
     type_funct=get_assistant_type,
 )
 def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
-    assistant_type = kwargs.get("assistant_type")
+    endpoint_id = info.context["endpoint_id"]
     assistant_name = kwargs.get("assistant_name")
     assistant_id = kwargs.get("assistant_id")
 
     args = []
     inquiry_funct = AssistantModel.scan
     count_funct = AssistantModel.count
-    if assistant_type:
-        args = [assistant_type, None]
+    if endpoint_id:
+        args = [endpoint_id, None]
         inquiry_funct = AssistantModel.query
         if assistant_id:
             inquiry_funct = AssistantModel.assistant_id_index.query
@@ -1503,14 +1519,14 @@ def resolve_assistant_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
 
 
 def _inactivate_assistants(
-    info: ResolveInfo, assistant_type: str, assistant_id: str
+    info: ResolveInfo, endpoint_id: str, assistant_id: str
 ) -> None:
     """
-    Inactivates all active assistants with the given assistant_type and assistant_id.
+    Inactivates all active assistants with the given endpoint_id and assistant_id.
 
     Args:
         info: ResolveInfo object containing context information
-        assistant_type: Type of the assistant to inactivate
+        endpoint_id: Endpoint ID to inactivate
         assistant_id: ID of the assistant to inactivate
 
     Returns:
@@ -1522,7 +1538,7 @@ def _inactivate_assistants(
     try:
         # Query for active assistants matching the type and ID
         assistants = AssistantModel.assistant_id_index.query(
-            assistant_type,
+            endpoint_id,
             AssistantModel.assistant_id == assistant_id,
             filter_condition=AssistantModel.status == "active",
         )
@@ -1557,7 +1573,7 @@ def object_to_dict(obj):
 
 @insert_update_decorator(
     keys={
-        "hash_key": "assistant_type",
+        "hash_key": "endpoint_id",
         "range_key": "assistant_version_uuid",
     },
     # range_key_funct=get_assistant_range_key,
@@ -1568,10 +1584,11 @@ def object_to_dict(obj):
 def insert_update_assistant_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> None:
-    assistant_type = kwargs["assistant_type"]
+    endpoint_id = kwargs["endpoint_id"]
     assistant_version_uuid = kwargs["assistant_version_uuid"]
     if kwargs.get("entity") is None:
         cols = {
+            "endpoint_id": endpoint_id,
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
@@ -1581,7 +1598,7 @@ def insert_update_assistant_handler(
         active_assistant = None
         if "assistant_id" in kwargs:
             active_assistant = _get_active_assistant(
-                assistant_type, kwargs["assistant_id"]
+                endpoint_id, kwargs["assistant_id"]
             )
 
             if active_assistant:
@@ -1592,7 +1609,7 @@ def insert_update_assistant_handler(
                         "functions": active_assistant.functions,
                     }
                 )
-                _inactivate_assistants(info, assistant_type, kwargs["assistant_id"])
+                _inactivate_assistants(info, endpoint_id, kwargs["assistant_id"])
 
         # Retrieve an existing assistant or create a new one
         _assistant = (
@@ -1634,7 +1651,7 @@ def insert_update_assistant_handler(
             cols["json_schema"] = _assistant.response_format.json_schema
 
         AssistantModel(
-            assistant_type,
+            endpoint_id,
             assistant_version_uuid,
             **cols,
         ).save()
@@ -1659,7 +1676,7 @@ def insert_update_assistant_handler(
                 **kwargs,
             ),
         )
-        _inactivate_assistants(info, assistant_type, assistant.assistant_id)
+        _inactivate_assistants(info, endpoint_id, assistant.assistant_id)
 
     # Map of kwargs keys to assitant attributes
     field_map = {
@@ -1679,7 +1696,7 @@ def insert_update_assistant_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "assistant_type",
+        "hash_key": "endpoint_id",
         "range_key": "assistant_version_uuid",
     },
     model_funct=get_assistant,
@@ -1709,7 +1726,7 @@ def archive_assistant_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bo
 
         # Query for all instances of this assistant
         assistants = AssistantModel.assistant_id_index.query(
-            kwargs["assistant_type"],
+            info.context["endpoint_id"],
             AssistantModel.assistant_id == kwargs["assistant_id"],
         )
 
@@ -1832,7 +1849,7 @@ def insert_update_thread_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
             assistant_id,
             thread_id,
             **{
-                "assistant_type": kwargs["assistant_type"],
+                "endpoint_id": info.context["endpoint_id"],
                 "runs": [kwargs["run"]],
                 "updated_by": kwargs["updated_by"],
                 "created_at": pendulum.now("UTC"),
@@ -2473,7 +2490,7 @@ async def process_tasks(raw_fine_tuning_messages, arguments):
 
 @async_task_decorator()
 def async_insert_update_fine_tuning_messages(
-    logger: logging.Logger, task_uuid: str, arguments: Dict[str, Any]
+    logger: logging.Logger, task_uuid: str, endpoint_id: str, arguments: Dict[str, Any]
 ) -> bool:
     try:
         insert_update_async_task(
@@ -2555,6 +2572,7 @@ def async_insert_update_fine_tuning_messages(
                     "message_uuid": str(uuid.uuid1().int >> 64),
                     "thread_id": thread.thread_id,
                     "timestamp": int(time.mktime(thread.created_at.timetuple())) - 1000,
+                    "endpoint_id": endpoint_id,
                     "role": "system",
                     "content": assistant.instructions,
                 }
@@ -2673,10 +2691,11 @@ def async_insert_update_fine_tuning_messages_handler(
 ) -> bool:
     try:
         task_uuid = kwargs["task_uuid"]
+        endpoint_id = kwargs["endpoint_id"]
         arguments = kwargs["arguments"]
         thread = threading.Thread(
             target=async_insert_update_fine_tuning_messages,
-            args=(logger, task_uuid, arguments),
+            args=(logger, task_uuid, endpoint_id, arguments),
         )
         thread.start()
 
@@ -2738,6 +2757,7 @@ def insert_update_fine_tuning_message_handler(
     cols = {
         "thread_id": kwargs["thread_id"],
         "timestamp": kwargs["timestamp"],
+        "endpoint_id": info.context["endpoint_id"],
         "role": kwargs["role"],
     }
     if kwargs.get("tool_calls") is not None:
@@ -2859,6 +2879,7 @@ def insert_update_async_task_handler(
             function_name,
             task_uuid,
             **{
+                "endpoint_id": info.context["endpoint_id"],
                 "arguments": kwargs["arguments"],
                 "created_at": pendulum.now("UTC"),
                 "updated_at": pendulum.now("UTC"),

@@ -166,9 +166,20 @@ class OpenaiAssistantEngine(SilvaEngineDynamoDBBase):
 
     def async_insert_update_fine_tuning_messages(self, **params: Dict[str, Any]) -> Any:
         async_insert_update_fine_tuning_messages_handler(self.logger, **params)
+        ## Test the waters 🧪 before diving in!
+        ##<--Testing Data-->##
+        if params.get("endpoint_id") is None:
+            params["endpoint_id"] = self.setting.get("endpoint_id")
+        ##<--Testing Data-->##
+
         return
 
     def openai_assistant_graphql(self, **params: Dict[str, Any]) -> Any:
+        ## Test the waters 🧪 before diving in!
+        ##<--Testing Data-->##
+        if params.get("endpoint_id") is None:
+            params["endpoint_id"] = self.setting.get("endpoint_id")
+        ##<--Testing Data-->##
         schema = Schema(
             query=Query,
             mutation=Mutations,

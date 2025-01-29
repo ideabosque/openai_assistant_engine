@@ -46,7 +46,7 @@ class OpenAIFileType(ObjectType):
 
 
 class AssistantType(ObjectType):
-    assistant_type = String()
+    endpoint_id = String()
     assistant_version_uuid = String()
     assistant_id = String()
     assistant_name = String()
@@ -83,7 +83,6 @@ class MessageType(ObjectType):
     message_id = String()
     role = String()
     message = String()
-    user_reference = String()
     created_at = DateTime()
 
 
@@ -101,6 +100,7 @@ class FineTuningMessageType(ObjectType):
     thread = JSON()
     message_uuid = String()
     timestamp = Int()
+    endpoint_id = String()
     role = String()
     tool_calls = List(JSON)
     tool_call_id = String()
@@ -112,6 +112,7 @@ class FineTuningMessageType(ObjectType):
 class AsyncTaskType(ObjectType):
     function_name = String()
     task_uuid = String()
+    endpoint_id = String()
     arguments = JSON()
     status = String()
     result = String()

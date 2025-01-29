@@ -499,12 +499,12 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_assistant(self):
         variables = {
             "assistantType": "conversation",
-            # "assistantVersionUuid": "16976514305985417711",
-            "assistantId": "asst_eCcy1jKhW7z78MRNzb1EDLIl",
+            # "assistantVersionUuid": "17628637268075221487",
+            # "assistantId": "asst_eCcy1jKhW7z78MRNzb1EDLIl",
             "assistantName": "Conversation ABC",
             "model": "gpt-4o-2024-05-13",
             "instructions": "You are a helpful assistant.",
@@ -525,7 +525,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_delete_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantVersionUuid": "14073400130839122415",
+            "assistantVersionUuid": "8600572667074122223",
         }
         payload = {
             "query": document,
@@ -539,7 +539,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_archive_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_BjPEdm9ehuVgEFAIsRHl28D4",
+            "assistantId": "asst_eCcy1jKhW7z78MRNzb1EDLIl",
         }
         payload = {
             "query": document,
@@ -553,7 +553,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     def test_graphql_assistant(self):
         variables = {
             "assistantType": "conversation",
-            "assistantId": "asst_BjPEdm9ehuVgEFAIsRHl28D4",
+            "assistantId": "asst_HjKTkwfEU1bmxXNGAM9qA4RT",
         }
         payload = {
             "query": document,
@@ -563,10 +563,10 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_assistant_list(self):
         variables = {
-            "assistantType": "conversation",
+            # "assistantType": "conversation",
             # "assistantName": "Agent ABC",
             "pageNumber": 1,
             "limit": 100,

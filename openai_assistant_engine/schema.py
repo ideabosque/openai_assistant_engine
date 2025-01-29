@@ -160,7 +160,6 @@ class Query(ObjectType):
     assistant = Field(
         AssistantType,
         required=True,
-        assistant_type=String(required=True),
         assistant_version_uuid=String(required=False),
         assistant_id=String(required=False),
     )
@@ -186,6 +185,7 @@ class Query(ObjectType):
         page_number=Int(),
         limit=Int(),
         assistant_id=String(),
+        endpoint_id=String(),
         assistant_types=List(String),
     )
 

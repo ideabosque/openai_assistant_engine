@@ -33,7 +33,7 @@ fragment CurrentRunInfo on CurrentRunType {
 }
 
 fragment AssistantInfo on AssistantType {
-    assistantType
+    endpointId
     assistantVersionUuid
     assistantId
     assistantName
@@ -309,12 +309,10 @@ mutation deleteFile(
 }
 
 query getAssistant(
-    $assistantType: String!,
     $assistantVersionUuid: String,
     $assistantId: String
 ) {
     assistant(
-        assistantType: $assistantType,
         assistantVersionUuid: $assistantVersionUuid,
         assistantId: $assistantId
     ) {
@@ -325,14 +323,12 @@ query getAssistant(
 query getAssistantList(
     $pageNumber: Int, 
     $limit: Int,
-    $assistantType: String,
     $assistantName: String,
     $assistantId: String
 ) {
     assistantList(
         pageNumber: $pageNumber,
         limit: $limit,
-        assistantType: $assistantType,
         assistantName: $assistantName,
         assistantId: $assistantId
     ) {
@@ -341,7 +337,6 @@ query getAssistantList(
 }
 
 mutation insertUpdateAssistant(
-    $assistantType: String!,
     $assistantVersionUuid: String,
     $assistantId: String,
     $assistantName: String!,
@@ -360,7 +355,6 @@ mutation insertUpdateAssistant(
     $updatedBy: String!
 ) {
     insertUpdateAssistant(
-        assistantType: $assistantType,
         assistantVersionUuid: $assistantVersionUuid,
         assistantId: $assistantId,
         assistantName: $assistantName,
@@ -385,11 +379,9 @@ mutation insertUpdateAssistant(
 }
 
 mutation deleteAssistant(
-    $assistantType: String!,
     $assistantVersionUuid: String!
 ) {
     deleteAssistant(
-        assistantType: $assistantType,
         assistantVersionUuid: $assistantVersionUuid
     ) {
         ok
@@ -397,11 +389,9 @@ mutation deleteAssistant(
 }
 
 mutation archiveAssistant(
-    $assistantType: String!,
     $assistantId: String!
 ) {
     archiveAssistant(
-        assistantType: $assistantType,
         assistantId: $assistantId
     ) {
         ok

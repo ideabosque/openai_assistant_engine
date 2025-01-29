@@ -28,7 +28,7 @@ class AssistantIdIndex(LocalSecondaryIndex):
         projection = AllProjection()
         index_name = "assistant_id-index"
 
-    assistant_type = UnicodeAttribute(hash_key=True)
+    endpoint_id = UnicodeAttribute(hash_key=True)
     assistant_id = UnicodeAttribute(range_key=True)
 
 
@@ -36,7 +36,7 @@ class AssistantModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "oae-assistants"
 
-    assistant_type = UnicodeAttribute(hash_key=True)
+    endpoint_id = UnicodeAttribute(hash_key=True)
     assistant_version_uuid = UnicodeAttribute(range_key=True)
     assistant_id = UnicodeAttribute()
     assistant_name = UnicodeAttribute()
@@ -65,7 +65,7 @@ class ThreadModel(BaseModel):
 
     assistant_id = UnicodeAttribute(hash_key=True)
     thread_id = UnicodeAttribute(range_key=True)
-    assistant_type = UnicodeAttribute()
+    endpoint_id = UnicodeAttribute()
     runs = ListAttribute(of=MapAttribute)
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
@@ -81,7 +81,6 @@ class MessageModel(BaseModel):
     run_id = UnicodeAttribute(null=True)
     role = UnicodeAttribute()
     message = UnicodeAttribute()
-    user_reference = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
 
 
@@ -136,6 +135,7 @@ class FineTuningMessageModel(BaseModel):
     message_uuid = UnicodeAttribute(range_key=True)
     thread_id = UnicodeAttribute()
     timestamp = NumberAttribute()
+    endpoint_id = UnicodeAttribute()
     role = UnicodeAttribute()
     tool_calls = ListAttribute(of=MapAttribute, null=True)
     tool_call_id = UnicodeAttribute(null=True)
@@ -144,6 +144,21 @@ class FineTuningMessageModel(BaseModel):
     trained = BooleanAttribute(default=False)
     thread_id_index = ThreadIdIndex()
     timestamp_index = TimestampIndex()
+
+
+class AsyncTaskEndpointtIdIndex(LocalSecondaryIndex):
+    """
+    This class represents a local secondary index
+    """
+
+    class Meta:
+        billing_mode = "PAY_PER_REQUEST"
+        # All attributes are projected
+        projection = AllProjection()
+        index_name = "endpoint_id-index"
+
+    function_name = UnicodeAttribute(hash_key=True)
+    endpoint_id = UnicodeAttribute(range_key=True)
 
 
 class AsyncTaskModel(BaseModel):
@@ -158,3 +173,4 @@ class AsyncTaskModel(BaseModel):
     log = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
+    endpoint_id_index = AsyncTaskEndpointtIdIndex()
