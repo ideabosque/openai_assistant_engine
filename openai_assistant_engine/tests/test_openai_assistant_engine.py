@@ -70,14 +70,11 @@ client = OpenAI(
 document = Path(
     os.path.join(os.path.dirname(__file__), "openai_assistant_engine.graphql")
 ).read_text()
-sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine")
-sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/openai_funct_base")
-sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
-sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
-sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/neo4j_graph_connector")
-# sys.path.insert(0, "/var/www/projects/openai_assistant_engine")
-# sys.path.insert(1, "/var/www/projects/openai_funct_base")
-# sys.path.insert(2, "/var/www/projects/silvaengine_dynamodb_base")
+sys.path.insert(0, f"{os.getenv('base_dir')}/openai_assistant_engine")
+sys.path.insert(1, f"{os.getenv('base_dir')}/openai_funct_base")
+sys.path.insert(2, f"{os.getenv('base_dir')}/silvaengine_dynamodb_base")
+sys.path.insert(3, f"{os.getenv('base_dir')}/silvaengine_utility")
+sys.path.insert(4, f"{os.getenv('base_dir')}/neo4j_graph_connector")
 
 
 logging.basicConfig(
@@ -88,8 +85,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-from openai_assistant_engine import OpenaiAssistantEngine
 from silvaengine_utility import Utility
+
+from openai_assistant_engine import OpenaiAssistantEngine
 
 
 def record_audio(frames, stream, chunk):
@@ -185,7 +183,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_conversation_search(self):
         logger.info("Start test_conversation_search ...")
         print("Hello! I am an AI assistant. How can I help you today?")
@@ -422,7 +420,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_insert_file(self):
         # Path to the local file
-        file_path = "C:/Users/bibo7/gitrepo/silvaengine/openai_assistant_engine/openai_assistant_engine/tests/openai_assistant_engine.graphql"
+        file_path = f"{os.getenv('base_dir')}/openai_assistant_engine/openai_assistant_engine/tests/openai_assistant_engine.graphql"
 
         # Extract the filename
         filename = os.path.basename(file_path)
@@ -838,7 +836,7 @@ class OpenaiAssistantEngineTest(unittest.TestCase):
         response = self.openai_assistant_engine.openai_assistant_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_upload_fine_tune_file(self):
         variables = {
             "assistantType": "conversation",

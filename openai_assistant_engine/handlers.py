@@ -27,9 +27,6 @@ from graphene import ResolveInfo
 from httpx import Response
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta import AssistantStreamEvent
-from tenacity import retry, stop_after_attempt, wait_exponential
-from typing_extensions import override
-
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -37,6 +34,8 @@ from silvaengine_dynamodb_base import (
     resolve_list_decorator,
 )
 from silvaengine_utility import Utility
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing_extensions import override
 
 from .models import (
     AssistantModel,
@@ -84,11 +83,6 @@ stream_text_deltas_queue = Queue()
 # Configurable batch size
 stream_text_deltas_batch_size = None
 
-# Test settings
-endpoint_id = None
-connection_id = None
-test_mode = None
-
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     """
@@ -100,7 +94,6 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     """
     global client, fine_tuning_data_days_limit, training_data_rate, apigw_client, aws_lambda, aws_sqs, aws_s3
     global task_queue, funct_bucket_name, funct_zip_path, funct_extract_path, stream_text_deltas_batch_size
-    global endpoint_id, connection_id, test_mode
 
     try:
         _initialize_openai_client(setting)
@@ -110,7 +103,6 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
         _initialize_task_queue(setting)
         _setup_function_paths(setting)
         _set_stream_text_deltas_batch_size(setting)
-        _initialize_test_settings(setting)
     except Exception as e:
         logger.error(
             "An error occurred during handlers initialization: %s",
@@ -192,13 +184,6 @@ def _set_stream_text_deltas_batch_size(setting: Dict[str, Any]) -> None:
     )
 
 
-def _initialize_test_settings(setting: Dict[str, Any]) -> None:
-    global endpoint_id, connection_id, test_mode
-    endpoint_id = setting.get("endpoint_id")
-    connection_id = setting.get("connection_id")
-    test_mode = setting.get("test_mode")
-
-
 def send_data_to_websocket_handler(
     logger: logging.Logger, **kwargs: Dict[str, Any]
 ) -> None:
@@ -275,7 +260,7 @@ def _send_data_to_websocket(
             },
             message_group_id=message_group_id,
             setting=setting,
-            test_mode=test_mode,
+            test_mode=setting.get("test_mode"),
             aws_lambda=aws_lambda,
         )
 
@@ -1187,7 +1172,7 @@ def get_current_run_id_and_start_async_task(
             "async_openai_assistant_stream",
             params=params,
             setting=info.context["setting"],
-            test_mode=test_mode,
+            test_mode=info.context["setting"].get("test_mode"),
             aws_lambda=aws_lambda,
         )
 
@@ -1254,15 +1239,6 @@ def resolve_ask_open_ai_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> AskOpenAIType:
     try:
-        ## Test the waters 🧪 before diving in!
-        ##<--Testing Data-->##
-        global connection_id, endpoint_id
-        if info.context.get("connectionId") is None:
-            info.context["connectionId"] = connection_id
-        if info.context.get("endpoint_id") is None:
-            info.context["endpoint_id"] = endpoint_id
-        ##<--Testing Data-->##
-
         info.context.get("logger").info(
             f"endpoint_id: {info.context.get('endpoint_id')}"
         )
@@ -2689,7 +2665,7 @@ def insert_update_fine_tuning_messages_handler(
             "async_insert_update_fine_tuning_messages",
             params=params,
             setting=info.context["setting"],
-            test_mode=test_mode,
+            test_mode=info.context["setting"].get("test_mode"),
             aws_lambda=aws_lambda,
         )
 
