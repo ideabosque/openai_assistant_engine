@@ -85,9 +85,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-from silvaengine_utility import Utility
-
 from openai_assistant_engine import OpenaiAssistantEngine
+from silvaengine_utility import Utility
 
 
 def record_audio(frames, stream, chunk):
