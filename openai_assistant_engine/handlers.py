@@ -1077,7 +1077,7 @@ def async_openai_assistant_stream_handler(
         task_uuid = kwargs["task_uuid"]
         arguments = kwargs["arguments"]
         connection_id = kwargs.get("connection_id")
-        setting = kwargs.get("setting")
+        setting = kwargs.get("setting", {})
 
         data_format = "batch"
         if "response_format" in arguments:
