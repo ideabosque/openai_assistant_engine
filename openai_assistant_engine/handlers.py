@@ -17,6 +17,7 @@ import time
 import traceback
 import uuid
 import zipfile
+from datetime import datetime
 from io import BytesIO
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional
@@ -330,13 +331,13 @@ def json_processing_loop(
         message_group_id: Message group ID for the WebSocket connection.
     """
     complete_json_accumulator, partial_json_accumulator = "", ""
-    timeout = 60
+    timeout = 120
 
     while True:
         try:
             item = stream_text_deltas_queue.get(timeout=timeout)
             stream_text_deltas_queue.task_done()
-            timeout = 5
+            timeout = 3
 
             # Parse and accumulate
             json_data = Utility.json_loads(item)
@@ -389,7 +390,7 @@ def batch_processing_loop(
         message_group_id: Message group ID for the WebSocket connection.
         stream_text_deltas_batch_size: Size of each batch to process.
     """
-    timeout = 60
+    timeout = 120
 
     while True:
         stream_text_deltas_batch = []
@@ -400,7 +401,7 @@ def batch_processing_loop(
                 item = stream_text_deltas_queue.get(timeout=timeout)
                 stream_text_deltas_batch.append(item)
                 stream_text_deltas_queue.task_done()
-                timeout = 5
+                timeout = 3
             except Empty:
                 break
 
@@ -827,6 +828,11 @@ class EventHandler(AssistantEventHandler):
             arguments = Utility.json_loads(tool.function.arguments)
             output = assistant_function(**arguments)
 
+            # Convert datetime objects to strings in the arguments
+            for key, value in arguments.items():
+                if isinstance(value, datetime):
+                    arguments[key] = value.isoformat()
+
             run_id = data.id
             tool_call_id = tool.id
             tool_call = ToolCallModel(
@@ -835,9 +841,7 @@ class EventHandler(AssistantEventHandler):
                 **{
                     "tool_type": "function",
                     "name": tool.function.name,
-                    "arguments": Utility.json_loads(
-                        Utility.json_dumps(arguments), parser_number=False
-                    ),
+                    "arguments": arguments,
                     "created_at": pendulum.from_timestamp(data.started_at, tz="UTC"),
                 },
             )
