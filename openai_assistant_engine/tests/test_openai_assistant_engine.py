@@ -75,6 +75,7 @@ sys.path.insert(1, f"{os.getenv('base_dir')}/openai_funct_base")
 sys.path.insert(2, f"{os.getenv('base_dir')}/silvaengine_dynamodb_base")
 sys.path.insert(3, f"{os.getenv('base_dir')}/silvaengine_utility")
 sys.path.insert(4, f"{os.getenv('base_dir')}/neo4j_graph_connector")
+sys.path.insert(5, f"{os.getenv('BASE_DIR')}/ai_marketing_engine")
 
 
 logging.basicConfig(

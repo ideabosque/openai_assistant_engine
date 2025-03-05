@@ -826,6 +826,7 @@ class EventHandler(AssistantEventHandler):
             ), f"The function ({tool.function.name}) is not supported!!!"
 
             arguments = Utility.json_loads(tool.function.arguments)
+            arguments.update({"endpoint_id": self.endpoint_id})
             output = assistant_function(**arguments)
 
             # Convert datetime objects to strings in the arguments
